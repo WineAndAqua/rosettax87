@@ -11,7 +11,6 @@ This is an experimental project that modifies Apple's Rosetta technology to use 
 - macOS 15.5 or compatible
 - C compiler (clang)
 - CMake
-- Administrator privileges (for running helper service)
 
 ## Building
 
@@ -28,17 +27,12 @@ cmake --build build
 
 ## Running
 
-This requires two terminal windows:
+Run the target program from the build folder:
+```
+./rosettax87 ./math
+```
 
-1. Run the helper service as root from the build folder:
-   ```
-   sudo ./rosettax87
-   ```
-
-2. Run the target program from the build folder:
-   ```
-   ./rosettax87 ./math
-   ```
+You might get a popup to confirm that the process is allowed to debug. This is a one time thing.
 
 ## Performance Benchmark
 
@@ -104,15 +98,15 @@ Average time: 48517 ticks
 
 ### Research Notes
 
-If you want to examine `runtime` and `libRosettaRuntime` using `IDA PRO`, you need to use `chain_fixup.py`. 
-- `libRosettaRuntime` is located at `/Library/Apple/usr/libexec/oah/libRosettaRuntime`. 
+If you want to examine `runtime` and `libRosettaRuntime` using `IDA PRO`, you need to use `chain_fixup.py`.
+- `libRosettaRuntime` is located at `/Library/Apple/usr/libexec/oah/libRosettaRuntime`.
 - `runtime` is located at `/usr/libexec/rosetta/runtime`.
 
 ### Windows Applications Through Wine
 
-You can use the brew `wine@devel` cask with RosettaHack x87. It supports launching Windows applications through Wine with an environment variable `ROSETTA_X87_PATH`. 
+You can use the brew `wine@devel` cask with RosettaHack x87. It supports launching Windows applications through Wine with an environment variable `ROSETTA_X87_PATH`.
 
-1. Install `wine@devel` using [Homebrew](https://brew.sh/) 
+1. Install `wine@devel` using [Homebrew](https://brew.sh/)
 
 ```bash
 brew install --cask wine@devel
@@ -123,12 +117,7 @@ brew install --cask wine@devel
 export ROSETTA_X87_PATH=/Path/To/rosettax87
 ```
 
-3. Run rosettax87 as sudo in a separate terminal
-```bash
-sudo $ROSETTA_X87_PATH
-```
-
-4. Run the Windows application
+3. Run the Windows application
 ```bash
 wine PATH_TO_BINARY.exe
 ```
