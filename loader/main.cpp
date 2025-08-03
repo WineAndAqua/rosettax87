@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <fcntl.h>
 #include <libproc.h>
 #include <mach-o/dyld.h> // For _NSGetExecutablePath
@@ -26,9 +25,6 @@
 #include "offset_finder.hpp"
 
 // #define WINE
-
-static bool g_is_wine = false;
-static bool g_is_wine_preloader = false;
 
 typedef const struct dyld_process_info_base *dyld_process_info;
 extern "C" dyld_process_info
@@ -92,9 +88,9 @@ private:
                              &info_count, &object_name) == KERN_SUCCESS) {
               printf("SIGBUS Details:\n");
               printf("-> Fault Address: 0x%llx\n", pc);
-              printf("-> Region Start: 0x%llx\n", region_address);
-              printf("-> Region End: 0x%llx\n", region_address + region_size);
-              printf("-> Region Size: 0x%llx\n", region_size);
+              printf("-> Region Start: 0x%lx\n", region_address);
+              printf("-> Region End: 0x%lx\n", region_address + region_size);
+              printf("-> Region Size: 0x%lx\n", region_size);
               printf("-> Region Permissions: %c%c%c\n",
                      (info.protection & VM_PROT_READ) ? 'r' : '-',
                      (info.protection & VM_PROT_WRITE) ? 'w' : '-',
@@ -185,6 +181,10 @@ public:
     // align size to page boundary
     if (size == 0) {
       size = vm_page_size;
+
+      // when changing the protection of a breakpoint rounding down
+      // can lead to the region lying outside of any mapped memory
+      region = address;
     }
     size = (size + vm_page_size - 1) & ~(vm_page_size - 1);
 
@@ -212,41 +212,20 @@ public:
       return false;
     }
 
-    // ::usleep(250000);
-
-    printf("wait for event\n");
     int status;
     waitForEvent(&status);
+    printf("program stopped due to debugger being attached\n");
 
-    printf("continued execution\n");
-
-    // Get task port for the child process
+    if (!continueExecution()) {
+	    printf("Failed to continue execution\n");
+	    return false;
+    }
     if (task_for_pid(mach_task_self(), childPid, &taskPort) != KERN_SUCCESS) {
-      printf("Failed to get task port for pid %d\n", childPid);
-      return false;
+	    printf("Failed to get task port for pid %d\n", childPid);
+	    return false;
     }
-
-    auto attach_count = g_is_wine_preloader ? 2 : 1;
-
-    for (auto i = 0; i < attach_count; i++) {
-
-      printf("continuing..\n");
-      if (!continueExecution()) {
-        printf("Failed to continue execution\n");
-        return false;
-      }
-
-      printf("waited..\n");
-      // Get task port for the child process
-      if (task_for_pid(mach_task_self(), childPid, &taskPort) != KERN_SUCCESS) {
-        printf("Failed to get task port for pid %d\n", childPid);
-        return false;
-      }
-
-      printf("acquired task port\n");
-    }
-
-    printf("Started debugging process %d\n", childPid);
+    printf("program stopped due to execv into rosetta process.\n");
+    printf("Started debugging process %d using port %d\n", childPid, taskPort);
     return true;
   }
 
@@ -277,6 +256,7 @@ public:
       perror("ptrace(PT_DETACH)");
       return false;
     }
+    printf("detached\n");
     return true;
   }
 
@@ -1084,86 +1064,6 @@ struct Export {
   uint64_t name;
 };
 
-int run_helper_mode() {
-  const char *socket_path = "/var/run/rosetta_helper.sock";
-
-  // Create Unix domain socket
-  int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-  if (server_fd < 0) {
-    perror("socket");
-    return 1;
-  }
-
-  // Remove existing socket if present
-  unlink(socket_path);
-
-  struct sockaddr_un addr;
-  memset(&addr, 0, sizeof(addr));
-  addr.sun_family = AF_UNIX;
-  strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-
-  if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-    perror("bind");
-    close(server_fd);
-    return 1;
-  }
-
-  // Set socket permissions to allow non-root users to connect
-  chmod(socket_path, 0666);
-
-  if (listen(server_fd, 5) < 0) {
-    perror("listen");
-    close(server_fd);
-    return 1;
-  }
-
-  printf("Helper listening on %s\n", socket_path);
-
-  while (true) {
-    int client_fd = accept(server_fd, NULL, NULL);
-    if (client_fd < 0) {
-      perror("accept");
-      continue;
-    }
-
-    // Read PID from client
-    pid_t target_pid;
-    ssize_t bytes_read = recv(client_fd, &target_pid, sizeof(target_pid), 0);
-    if (bytes_read != sizeof(target_pid)) {
-      perror("recv");
-      close(client_fd);
-      continue;
-    }
-
-    printf("Received request to debug PID: %d\n", target_pid);
-
-    // Fork and execute new instance
-    pid_t child = fork();
-    if (child == 0) {
-      // Child process
-      char pid_str[32];
-      snprintf(pid_str, sizeof(pid_str), "%d", target_pid);
-
-      // Get path to current executable
-      char path[4096];
-      uint32_t path_size = sizeof(path);
-      if (_NSGetExecutablePath(path, &path_size) == 0) {
-        char *args[] = {path, pid_str, NULL};
-        execv(path, args);
-        perror("execv");
-      }
-      exit(1);
-    }
-
-    // Send success response
-    uint8_t success = 1;
-    send(client_fd, &success, sizeof(success), 0);
-    close(client_fd);
-  }
-
-  close(server_fd);
-  return 0;
-}
 std::string get_process_name(int pid) {
   char name[PROC_PIDPATHINFO_MAXSIZE];
   if (proc_name(pid, name, sizeof(name)) <= 0) {
@@ -1224,6 +1124,43 @@ std::string get_process_cmdline(int pid) {
 
 int main(int argc, char *argv[]) {
 
+  if (argc < 2) {
+  	printf("call with either program or pid\n");
+    return 1;
+  }
+
+  int pid = atoi(argv[1]);
+
+  // called not with pid arg = argument is process to run
+  if (pid == 0) {
+ 	pid = getpid();
+  	printf("Called with non pid. Launching debugger.\n");
+
+    // Fork and execute new instance
+    pid_t child = fork();
+    if (child == 0) {
+      // Child process
+      char pid_str[32];
+      snprintf(pid_str, sizeof(pid_str), "%d", pid);
+
+      // Get path to current executable
+      char path[4096];
+      uint32_t path_size = sizeof(path);
+      if (_NSGetExecutablePath(path, &path_size) == 0) {
+        char *args[] = {path, pid_str, NULL};
+        execv(path, args);
+        perror("execv");
+      }
+      exit(1);
+    }
+
+    // wait for debugger from forked process to attach
+    sleep(5000);
+    printf("launching into program\n");
+    execv(argv[1], &argv[1]);
+    return 1;
+  }
+
   // Set up offsets dynamically
   OffsetFinder offset_finder;
   // Set default offsets temporarily (or just in case we need to fall back)
@@ -1231,78 +1168,10 @@ int main(int argc, char *argv[]) {
   // Search the rosetta runtime binary for offsets.
   offset_finder.determine_offsets();
 
-  if (geteuid() != 0) {
-    if (argc < 2) {
-      printf("Usage: %s <program_to_debug>\n", argv[0]);
-      return 1;
-    }
-    // connect to helper tool socket and send PID
-    int client_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (client_fd < 0) {
-      perror("socket");
-      return 1;
-    }
-
-    struct sockaddr_un addr;
-
-    memset(&addr, 0, sizeof(addr));
-
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, "/var/run/rosetta_helper.sock",
-            sizeof(addr.sun_path) - 1);
-
-    if (connect(client_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-      perror("connect");
-      close(client_fd);
-      return 1;
-    }
-
-    pid_t pid = getpid();
-
-    ssize_t bytes_sent = send(client_fd, &pid, sizeof(pid), 0);
-    if (bytes_sent != sizeof(pid)) {
-      perror("send");
-      close(client_fd);
-      return 1;
-    }
-
-    uint8_t success;
-
-    ssize_t bytes_read = recv(client_fd, &success, sizeof(success), 0);
-
-    if (bytes_read != sizeof(success)) {
-      perror("recv");
-      close(client_fd);
-      return 1;
-    }
-
-    close(client_fd);
-    // Non-root code path
-    // raise(SIGSTOP);
-    usleep(50000000);
-    printf("launching into program\n");
-    execv(argv[1], &argv[1]);
-    return 1;
-  }
-
-  // Root code path
-  if (argc < 2) {
-    // Run as helper tool
-    return run_helper_mode();
-  }
-
-  // Debug specific process
-  int pid = atoi(argv[1]);
-  printf("Running as root, attaching to process %d\n", pid);
-
   MuhDebugger dbg;
 
   auto cmdline = get_process_cmdline(pid);
   printf("cmdline: %s\n", cmdline.c_str());
-  if (cmdline.find("wine") != std::string::npos) {
-    printf("Wine process detected\n");
-    g_is_wine = true;
-  }
 
   if (!dbg.attach(pid)) {
     printf("Failed to attach to process\n");
@@ -1313,12 +1182,12 @@ int main(int argc, char *argv[]) {
   auto module_list = dbg.getModuleList();
 
   for (const auto &module : module_list) {
-    printf("address %llx, name %s\n", module.address, module.path.c_str());
+    printf("address %lx, name %s\n", module.address, module.path.c_str());
   }
 
   const auto runtime_base = dbg.find_runtime();
 
-  printf("Rosetta runtime base: 0x%llx\n", runtime_base);
+  printf("Rosetta runtime base: 0x%lx\n", runtime_base);
 
   if (runtime_base == 0) {
     printf("Failed to find Rosetta runtime\n");
@@ -1332,22 +1201,22 @@ int main(int argc, char *argv[]) {
   // Uncomment to enable debug flags in Rosetta runtime, not recommended
   // enable PRINT_IR
   // dbg.writeMemory(runtime_base + 0x3B280, "\x01", 1);
-  
+
   // enable PRINT_SEGMENTS
   // dbg.writeMemory(runtime_base + 0x3B281, "\x01", 1);
-  
+
   // enable DISABLE_EXCEPTIONS
   // dbg.writeMemory(runtime_base + 0x3B27D, "\x01", 1);
-  
+
   // enable DISABLE_SIGACTION
   // dbg.writeMemory(runtime_base + 0x3B27E, "\x01", 1);
-  
+
   // enable ALLOW_GUARD_PAGES
   // dbg.writeMemory(runtime_base + 0x3B278, "\x01", 1);
-  
+
   // // enable SCRIBBLE_TRANSLATIONS
   // dbg.writeMemory(runtime_base + 0x3B282, "\x01", 1);
-  
+
   // // enable AOT_ERRORS_ARE_FATAL
   // dbg.writeMemory(runtime_base + 0x3B279, "\x01", 1);
 #endif
@@ -1507,67 +1376,6 @@ int main(int argc, char *argv[]) {
   // replace the exports in X19 register with the address of the mapped macho
   dbg.setRegister(MuhDebugger::Register::X19, macho_exports_address);
 
-  if (g_is_wine)
-    dbg.detach();
-  else {
-    dbg.continueExecution();
-  }
-
-#if 0
-  // Basic debugging loop example
-  printf("Debugger attached. Commands:\n");
-  printf("b <addr> - Set breakpoint at address\n");
-  printf("r <addr> - Remove breakpoint at address\n");
-  printf("c - Continue execution\n");
-  printf("m - List mapped modules\n");
-  printf("p - Print CPU registers\n");
-  printf("x <addr> <size> - Examine memory\n");
-  printf("q - Quit\n");
-
-  char cmd;
-  uint64_t addr;
-  size_t size;
-  int status;
-  while (true) {
-    printf("dbg> ");
-    scanf(" %c", &cmd);
-
-    switch (cmd) {
-      case 'b':
-        scanf("%llx", &addr);
-        dbg.setBreakpoint(addr);
-        break;
-      case 'r':
-        scanf("%llx", &addr);
-        dbg.removeBreakpoint(addr);
-        break;
-      case 'c':
-        dbg.continueExecution();
-        break;
-      case 'm':
-        dbg.listModules();
-        break;
-      case 'p':
-        dbg.printRegisters();
-        break;
-      case 't':
-        dbg.printStackTrace();
-        break;
-      case 's':
-        dbg.singleStep();
-        break;
-      case 'w': {
-        scanf("%llx %zx", &addr, &size);
-        dbg.setWatchpoint(addr, size);
-      } break;
-      case 'x':
-        scanf("%llx %zx", &addr, &size);
-        dbg.printMemory(addr, size);
-        break;
-      case 'q':
-        return 0;
-    }
-  }
-#endif
+  dbg.detach();
   return 0;
 }

@@ -1,5 +1,6 @@
 #include "macho_loader.hpp"
 
+#include <fstream>
 #include <mach/vm_page_size.h>
 #include <mach-o/loader.h>
 

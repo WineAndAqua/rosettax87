@@ -51,7 +51,6 @@ auto OffsetFinder::determine_offsets() -> void{
             results.push_back(-1);
         }
         else{
-            std::cout << "Found offset @ " << std::format("{:x}",std::distance(buffer.begin(), it)) << '\n';
             results.push_back((std::uint64_t)std::distance(buffer.begin(), it));
         }
     }
@@ -64,9 +63,11 @@ auto OffsetFinder::determine_offsets() -> void{
 
     //Set the offsets to the results that we've found now that we know they're "correct".
     offset_loop_copy_func = results[0];
-    offset_svc_call_entry = results[1]; 
+    offset_svc_call_entry = results[1];
     offset_svc_call_ret = offset_svc_call_entry + 0xc;
 
-    printf("Found rosetta runtime offsets successfully!\n");
+    printf("Found rosetta runtime offsets successfully! noffset_loop_copy_func=%llx offset_svc_call_entry=%llx offset_svc_call_ret=%llx\n",
+    	offset_loop_copy_func, offset_svc_call_entry, offset_svc_call_ret
+    );
     return;
 }

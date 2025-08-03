@@ -2,7 +2,6 @@
 
 #include <filesystem>
 #include <vector>
-#include <fstream>
 #include <mach-o/loader.h>
 #include <functional>
 
