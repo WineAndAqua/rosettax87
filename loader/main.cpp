@@ -1138,23 +1138,25 @@ int main(int argc, char *argv[]) {
 
     // Fork and execute new instance
     pid_t child = fork();
-    if (child == 0) {
-      // Child process
-      char pid_str[32];
-      snprintf(pid_str, sizeof(pid_str), "%d", pid);
+
+    // the debugger will be this process debugging its child
+    if (child != 0) {
+      // the parent will be the debugger
+      char child_str[32];
+      snprintf(child_str, sizeof(child_str), "%d", child);
 
       // Get path to current executable
       char path[4096];
       uint32_t path_size = sizeof(path);
       if (_NSGetExecutablePath(path, &path_size) == 0) {
-        char *args[] = {path, pid_str, NULL};
+        char *args[] = {path, child_str, NULL};
         execv(path, args);
         perror("execv");
       }
       exit(1);
     }
 
-    // wait for debugger from forked process to attach
+    // the fresh child waiting to be debugged
     sleep(5000);
     printf("launching into program\n");
     execv(argv[1], &argv[1]);
@@ -1375,5 +1377,6 @@ int main(int argc, char *argv[]) {
   dbg.setRegister(MuhDebugger::Register::X19, macho_exports_address);
 
   dbg.detach();
+
   return 0;
 }
