@@ -1265,11 +1265,11 @@ int main(int argc, char *argv[]) {
 #define MAP_TRANSLATED_ALLOW_EXECUTE                                           \
   0x20000 /* allow execute in translated processes */
 
-  mmap_thread_state.__x[0] = 0x210000000LL;                // addr
+  mmap_thread_state.__x[0] = 0LL;                // addr
   mmap_thread_state.__x[1] = macho_loader.image_size();    // size
   mmap_thread_state.__x[2] = VM_PROT_READ | VM_PROT_WRITE; // prot
   mmap_thread_state.__x[3] =
-      MAP_ANON | MAP_FIXED | MAP_TRANSLATED_ALLOW_EXECUTE; // flags
+      MAP_ANON | MAP_TRANSLATED_ALLOW_EXECUTE; // flags
   mmap_thread_state.__x[4] = -1;                           // fd
   mmap_thread_state.__x[5] = 0;                            // offset
   mmap_thread_state.__pc = runtime_base + offset_finder.offset_svc_call_entry;
