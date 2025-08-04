@@ -1196,6 +1196,7 @@ int main(int argc, char *argv[]) {
 
   dbg.setBreakpoint(runtime_base + offset_finder.offset_loop_copy_func);
   dbg.continueExecution();
+  dbg.removeBreakpoint(runtime_base + offset_finder.offset_loop_copy_func);
 
 #if 0
   // Uncomment to enable debug flags in Rosetta runtime, not recommended
@@ -1256,9 +1257,6 @@ int main(int argc, char *argv[]) {
   arm_thread_state64_t backup_thread_state;
   dbg.copyThreadState(backup_thread_state);
 
-  // setup a breakpoint after mmap syscall
-  dbg.setBreakpoint(runtime_base + offset_finder.offset_svc_call_ret);
-
   // now we prepare the registers for the mmap call
   arm_thread_state64_t mmap_thread_state;
   memcpy(&mmap_thread_state, &backup_thread_state,
@@ -1274,17 +1272,19 @@ int main(int argc, char *argv[]) {
       MAP_ANON | MAP_FIXED | MAP_TRANSLATED_ALLOW_EXECUTE; // flags
   mmap_thread_state.__x[4] = -1;                           // fd
   mmap_thread_state.__x[5] = 0;                            // offset
-
   mmap_thread_state.__pc = runtime_base + offset_finder.offset_svc_call_entry;
 
   dbg.restoreThreadState(mmap_thread_state);
+
+  // setup a breakpoint after mmap syscall
+  dbg.setBreakpoint(runtime_base + offset_finder.offset_svc_call_ret);
   dbg.continueExecution();
+  dbg.removeBreakpoint(runtime_base + offset_finder.offset_svc_call_ret);
 
   macho_base = dbg.readRegister(MuhDebugger::Register::X0);
 
   printf("Allocated memory at 0x%llx\n", macho_base);
 
-  dbg.removeBreakpoint(runtime_base + offset_finder.offset_svc_call_ret);
   dbg.restoreThreadState(backup_thread_state);
 
   macho_loader.for_each_segment([&](segment_command_64 *segm) {
@@ -1370,8 +1370,6 @@ int main(int argc, char *argv[]) {
 
   dbg.writeMemory(macho_imports_address, &lib_rosetta_runtime_exports,
                   sizeof(lib_rosetta_runtime_exports));
-
-  dbg.removeBreakpoint(runtime_base + offset_finder.offset_loop_copy_func);
 
   // replace the exports in X19 register with the address of the mapped macho
   dbg.setRegister(MuhDebugger::Register::X19, macho_exports_address);
