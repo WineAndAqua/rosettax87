@@ -180,13 +180,13 @@ public:
         address & ~(vm_page_size - 1); // align to page boundary
     // align size to page boundary
     if (size == 0) {
-      size = vm_page_size;
+      size = 1;
 
       // when changing the protection of a breakpoint rounding down
       // can lead to the region lying outside of any mapped memory
       region = address;
     }
-    size = (size + vm_page_size - 1) & ~(vm_page_size - 1);
+    size = std::min((size + vm_page_size - 1) & ~(vm_page_size - 1), size);
 
     printf("Adjusting memory protection at 0x%llx - 0x%llx\n",
            (unsigned long long)region, (unsigned long long)(region + size));
