@@ -1378,5 +1378,9 @@ int main(int argc, char *argv[]) {
 
   dbg.detach();
 
+  // block until the child exits
+  int status;
+  waitpid(pid, &status, 0);
+
   return 0;
 }
