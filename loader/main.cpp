@@ -1004,9 +1004,8 @@ std::string get_process_cmdline(int pid) {
 }
 
 int main(int argc, char *argv[]) {
-
 	if (argc < 2) {
-		printf("call with either program or pid\n");
+		printf("call with program\n");
 		return 1;
 	}
 
@@ -1036,13 +1035,29 @@ int main(int argc, char *argv[]) {
 			}
 			exit(1);
 		}
+	printf("Launching debugger.\n");
 
+	// Fork and execute new instance
+	pid_t child = fork();
+
+	// the debugger will be this process debugging its child
+	if (child == 0) {
 		// the fresh child waiting to be debugged
-		sleep(5000);
-		printf("launching into program\n");
+		if (ptrace(PT_TRACE_ME, 0, nullptr, 0) == -1) {
+			perror("child: ptrace(PT_TRACE_ME)");
+			return 1;
+		}
+		printf("child: launching into program\n");
 		execv(argv[1], &argv[1]);
 		return 1;
 	}
+
+	MuhDebugger dbg;
+	if (!dbg.attach(child)) {
+		printf("Failed to attach to process\n");
+		return 1;
+	}
+	printf("Attached successfully\n");
 
 	// Set up offsets dynamically
 	OffsetFinder offset_finder;
@@ -1050,17 +1065,6 @@ int main(int argc, char *argv[]) {
 	offset_finder.set_default_offsets();
 	// Search the rosetta runtime binary for offsets.
 	offset_finder.determine_offsets();
-
-	MuhDebugger dbg;
-
-	auto cmdline = get_process_cmdline(pid);
-	printf("cmdline: %s\n", cmdline.c_str());
-
-	if (!dbg.attach(pid)) {
-		printf("Failed to attach to process\n");
-		return 1;
-	}
-	printf("Attached successfully\n");
 
 	auto module_list = dbg.getModuleList();
 
@@ -1214,7 +1218,7 @@ int main(int argc, char *argv[]) {
 
 	// block until the child exits
 	int status;
-	waitpid(pid, &status, 0);
+	waitpid(child, &status, 0);
 
 	return 0;
 }
