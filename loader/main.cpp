@@ -933,7 +933,7 @@ public:
 const unsigned int MuhDebugger::AARCH64_BREAKPOINT = 0xD4200000;
 
 struct Exports {
-	uint64_t version; // 0x1560000000000
+	uint64_t version; // 0x16A0000000000
 	uint64_t x87_exports;
 	uint64_t x87_export_count;
 	uint64_t runtime_exports;
@@ -1077,9 +1077,9 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	dbg.setBreakpoint(runtime_base + offset_finder.offset_loop_copy_func);
+	dbg.setBreakpoint(runtime_base + offset_finder.offset_exports_fetch);
 	dbg.continueExecution();
-	dbg.removeBreakpoint(runtime_base + offset_finder.offset_loop_copy_func);
+	dbg.removeBreakpoint(runtime_base + offset_finder.offset_exports_fetch);
 
 	auto rosetta_runtime_exports_address = dbg.readRegister(MuhDebugger::Register::X19);
 	printf("Rosetta runtime exports: 0x%llx\n", rosetta_runtime_exports_address);

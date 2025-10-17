@@ -12,11 +12,11 @@ struct Export {
 };
 
 struct Exports {
-	uint64_t version; // 0x1560000000000
 	const Export *x87_exports;
 	uint64_t x87_export_count;
 	const Export *runtime_exports;
 	uint64_t runtime_export_count;
+	uint64_t version; // 0x16A0000000000
 };
 
 static_assert(sizeof(Exports) == 0x28, "Invalid size for Exports");
@@ -128,6 +128,7 @@ extern abi_for_address_t orig_abi_for_address;
 extern determine_state_recovery_action_t orig_determine_state_recovery_action;
 extern get_segment_limit_t orig_get_segment_limit;
 extern translator_set_variant_t orig_translator_set_variant;
+extern x87_set_init_state_t orig_x87_set_init_state;
 
 extern runtime_cpuid_t orig_runtime_cpuid;
 extern runtime_wide_udiv_64_t orig_runtime_wide_udiv_64;
