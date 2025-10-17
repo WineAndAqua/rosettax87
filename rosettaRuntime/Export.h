@@ -1,22 +1,22 @@
 #pragma once
 
-#include <cstdint>
-#include <cstddef>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 
 #include "X87.h"
 
 struct Export {
-  void* address;
-  const char* name;
+	void *address;
+	const char *name;
 };
 
 struct Exports {
-  uint64_t version;  // 0x1560000000000
-  const Export* x87_exports;
-  uint64_t x87_export_count;
-  const Export* runtime_exports;
-  uint64_t runtime_export_count;
+	uint64_t version; // 0x1560000000000
+	const Export *x87_exports;
+	uint64_t x87_export_count;
+	const Export *runtime_exports;
+	uint64_t runtime_export_count;
 };
 
 static_assert(sizeof(Exports) == 0x28, "Invalid size for Exports");

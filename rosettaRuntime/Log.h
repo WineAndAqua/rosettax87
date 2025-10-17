@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdint>
 #include <cstdarg>
+#include <cstdint>
 
 // flip this to 1 to enable logging of instruction calls
 #if 0
@@ -15,6 +15,6 @@
 #define MISSING(fd, msg, len) syscall_write(1, msg, len);
 #endif
 
-extern auto syscall_write(int fd, const char* buf, uint64_t count) -> uint64_t;
+extern auto syscall_write(int fd, const char *buf, uint64_t count) -> uint64_t;
 
-extern void simple_printf(const char* format, ...);
+extern void simple_printf(const char *format, ...);

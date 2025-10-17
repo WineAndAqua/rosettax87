@@ -14,7 +14,7 @@ add_custom_command(TARGET rosettax87 POST_BUILD
     COMMENT "Signing rosettax87 with entitlements"
 )
 
-add_executable(libRuntimeRosettax87 
+add_executable(libRuntimeRosettax87
     rosettaRuntime/main.cpp
     rosettaRuntime/X87Float80.cpp
     rosettaRuntime/X87StackRegister.cpp
@@ -39,10 +39,10 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/deps/include)
 set(OPTIMIZATION_FLAGS
     "-fvisibility=hidden"
     "-O3"
-    "-funroll-loops"        
-    "-march=native"         
+    "-funroll-loops"
+    "-march=native"
     "-mtune=native"
-    "-fomit-frame-pointer"  
+    "-fomit-frame-pointer"
     "-mcpu=apple-m1"
     "-fno-builtin-sin"
     "-ftree-vectorize"
@@ -60,10 +60,10 @@ string(REPLACE ";" " " OPTIMIZATION_FLAGS_STRING "${OPTIMIZATION_FLAGS}")
 ExternalProject_Add(
     openlibm_build
     SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/openlibm
-    CMAKE_ARGS 
+    CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/deps
         -DBUILD_SHARED_LIBS=OFF
-        -DCMAKE_C_FLAGS=${OPTIMIZATION_FLAGS_STRING}        
+        -DCMAKE_C_FLAGS=${OPTIMIZATION_FLAGS_STRING}
     # Skip running the default install step that has errors
     INSTALL_COMMAND ""
     BUILD_BYPRODUCTS ${CMAKE_BINARY_DIR}/openlibm_build-prefix/src/openlibm_build-build/libopenlibm.a
@@ -90,16 +90,16 @@ set_target_properties(openlibm PROPERTIES
 target_include_directories(openlibm INTERFACE ${CMAKE_BINARY_DIR}/deps/include)
 
 target_link_options(libRuntimeRosettax87 PRIVATE
-"-Wl,-no_compact_unwind"
-"-Wl,-no_pie"
-"-static"
-"-nostdlib"
-"-Wl,-segaddr,__TEXT,0x0"
-"-Wl,-segaddr,__DATA,0x10000"
-"-Wl,-pagezero_size,0x0"
-"-Wl,-headerpad,0"
-"-Wl,-e,_start"
-"-Wl,-segalign,10"
+    "-Wl,-no_compact_unwind"
+    "-Wl,-no_pie"
+    "-static"
+    "-nostdlib"
+    "-Wl,-segaddr,__TEXT,0x0"
+    "-Wl,-segaddr,__DATA,0x10000"
+    "-Wl,-pagezero_size,0x0"
+    "-Wl,-headerpad,0"
+    "-Wl,-e,_start"
+    "-Wl,-segalign,10"
 )
 
 target_compile_options(libRuntimeRosettax87 PRIVATE
