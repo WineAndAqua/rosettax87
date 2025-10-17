@@ -2031,6 +2031,7 @@ X87_TRAMPOLINE(abi_for_address, x9)
 X87_TRAMPOLINE(determine_state_recovery_action, x9)
 X87_TRAMPOLINE(get_segment_limit, x9)
 X87_TRAMPOLINE(translator_set_variant, x9)
+X87_TRAMPOLINE(x87_set_init_state, x9)
 
 X87_TRAMPOLINE(runtime_cpuid, x22)
 X87_TRAMPOLINE(runtime_wide_udiv_64, x9)
