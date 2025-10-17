@@ -1123,9 +1123,6 @@ int main(int argc, char *argv[]) {
 	arm_thread_state64_t mmap_thread_state;
 	memcpy(&mmap_thread_state, &backup_thread_state, sizeof(arm_thread_state64_t));
 
-#define MAP_TRANSLATED_ALLOW_EXECUTE \
-	0x20000 // allow execute in translated processes
-
 	mmap_thread_state.__x[0] = 0LL;                                     // addr
 	mmap_thread_state.__x[1] = macho_loader.image_size();               // size
 	mmap_thread_state.__x[2] = VM_PROT_READ | VM_PROT_WRITE;            // prot
