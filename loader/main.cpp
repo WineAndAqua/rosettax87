@@ -81,7 +81,7 @@ public:
 
 		int status;
 		waitForEvent(&status);
-		printf("program stopped due to debugger being attached\n");
+		printf("Program stopped due to debugger being attached\n");
 
 		if (!continueExecution()) {
 			printf("Failed to continue execution\n");
@@ -91,7 +91,7 @@ public:
 			printf("Failed to get task port for pid %d\n", childPid);
 			return false;
 		}
-		printf("program stopped due to execv into rosetta process.\n");
+		printf("Program stopped due to execv into rosetta process.\n");
 		printf("Started debugging process %d using port %d\n", childPid, taskPort);
 		return true;
 	}
@@ -113,7 +113,7 @@ public:
 			perror("ptrace(PT_DETACH)");
 			return false;
 		}
-		printf("detached\n");
+		printf("Detached.\n");
 		return true;
 	}
 
