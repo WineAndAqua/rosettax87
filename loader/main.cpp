@@ -51,30 +51,23 @@ private:
 	}
 
 public:
-	bool adjustMemoryProtection(uint64_t address, vm_prot_t protection, mach_vm_size_t size = 0) {
-		mach_vm_address_t region = address & ~(vm_page_size - 1); // align to page boundary
-		// align size to page boundary
-		if (size == 0) {
-			size = 1;
+	bool adjustMemoryProtection(uint64_t address, vm_prot_t protection, mach_vm_size_t size) {
+		// 4KB page size in rosetta process
+		vm_size_t pageSize = 0x1000;
+		// align to page boundary
+		mach_vm_address_t region = address & ~(pageSize - 1);
+		size = ((address + size + pageSize - 1) & ~(pageSize - 1)) - region;
 
-			// when changing the protection of a breakpoint rounding down
-			// can lead to the region lying outside of any mapped memory
-			region = address;
-		}
-		size = std::min((size + vm_page_size - 1) & ~(vm_page_size - 1), size);
+		printf("Adjusting memory protection at 0x%llx - 0x%llx\n", (uint64_t)region, (uint64_t)(region + size));
 
-		printf("Adjusting memory protection at 0x%llx - 0x%llx\n", (unsigned long long)region, (unsigned long long)(region + size));
-
-		for (mach_vm_size_t offset = 0; offset < size; offset += vm_page_size) {
-			mach_vm_address_t page = region + offset;
-			kern_return_t kr = mach_vm_protect(taskPort, page, vm_page_size, FALSE, protection);
-			if (kr != KERN_SUCCESS) {
-				printf("Failed to adjust memory protection at 0x%llx (error 0x%x: %s)\n", (unsigned long long)page, kr, mach_error_string(kr));
-				return false;
-			}
+		kern_return_t kr = mach_vm_protect(taskPort, region, size, FALSE, protection);
+		if (kr != KERN_SUCCESS) {
+			printf("Failed to adjust memory protection at 0x%llx - 0x%llx (error 0x%x: %s)\n", (uint64_t)region, (uint64_t)(region + size), kr, mach_error_string(kr));
+			return false;
 		}
 		return true;
 	}
+
 	bool attach(pid_t pid) {
 		childPid = pid;
 		printf("attempting to attach to %d\n", childPid);
@@ -192,7 +185,7 @@ public:
 		}
 
 		// First, try to adjust memory protection
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
+		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY, sizeof(unsigned int))) {
 			return false;
 		}
 
@@ -203,7 +196,7 @@ public:
 			return false;
 		}
 		// printf("write success\n");
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE)) {
+		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE, sizeof(unsigned int))) {
 			return false;
 		}
 
@@ -221,7 +214,7 @@ public:
 		}
 
 		// First, try to adjust memory protection
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE)) {
+		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE, sizeof(unsigned int))) {
 			return false;
 		}
 
@@ -231,7 +224,7 @@ public:
 			printf("Failed to restore original instruction at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
 			return false;
 		}
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE)) {
+		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE, sizeof(unsigned int))) {
 			return false;
 		}
 		breakpoints.erase(it);
@@ -395,7 +388,7 @@ public:
 		}
 
 		// Set memory protection to RWX
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE)) {
+		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE, size)) {
 			// If protection fails, deallocate the memory
 			mach_vm_deallocate(taskPort, address, size);
 			return 0;
