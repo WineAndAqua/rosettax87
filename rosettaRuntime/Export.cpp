@@ -109,6 +109,7 @@ __attribute__((used)) abi_for_address_t orig_abi_for_address;
 __attribute__((used)) determine_state_recovery_action_t orig_determine_state_recovery_action;
 __attribute__((used)) get_segment_limit_t orig_get_segment_limit;
 __attribute__((used)) translator_set_variant_t orig_translator_set_variant;
+__attribute__((used)) x87_set_init_state_t orig_x87_set_init_state;
 
 __attribute__((used)) runtime_cpuid_t orig_runtime_cpuid;
 __attribute__((used)) runtime_wide_udiv_64_t orig_runtime_wide_udiv_64;
@@ -222,6 +223,7 @@ constexpr std::array kExportList{
 	Export{(void *)&determine_state_recovery_action, "__ZN7rosetta7runtime7library31determine_state_recovery_actionEPKjjj"},
 	Export{(void *)&get_segment_limit, "__ZN7rosetta7runtime7library17get_segment_limitEjt"},
 	Export{(void *)&translator_set_variant, "__ZN7rosetta7runtime7library22translator_set_variantEb"},
+	Export{(void *)&x87_set_init_state, "__ZN7rosetta7runtime7library18x87_set_init_stateEPNS1_8X87StateE"},
 };
 
 constexpr std::array kRuntimeExportList = {
@@ -231,7 +233,7 @@ constexpr std::array kRuntimeExportList = {
 };
 
 __attribute__((section("__DATA,exports"), used)) Exports kExports = {
-	0x1560000000000,
+	0x16A0000000000,
 	kExportList.data(),
 	kExportList.size(),
 	kRuntimeExportList.data(),

@@ -1,28 +1,39 @@
 #include "offset_finder.hpp"
 
 auto OffsetFinder::set_default_offsets() -> void {
-	// These are the default offsets for the rosetta runtime that matches MD5 hash: c6b7650638eaf4d15bd56b9aae282b11
+	// These are the default offsets for the rosetta runtime that matches MD5 hash: d7819a04355cd77ff24031800a985c13
 
-	offset_loop_copy_func = 0x1289C;                   // Some kind of function that copies n values from param3 to param1 where n is defined by a value in param4.
-	offset_svc_call_entry = 0x3c58;                    // The entry point of a function that does a Supervisor Call instruction with the parameter 0x80 (the immediate used by XNU? This is what a quick google search tells me)
+	offset_exports_fetch = 0xFA8C; // Just before fetching 'exports' structure pointed by X19 and just after checking rosetta runtime version from header
+	//               LDR X8, [X19]  - X19 'exports' structure address
+	//               MOV X9, #1
+	//               MOVK X9, #0x6A00,LSL#32
+	//               MOVK X9, #1,LSL#48
+	//               CMP X8, X9  // if [X19] < 0x16A0000000001
+	//               B.CS <error version flow>
+	// 62 06 40 F9 - LDR X2, [X19,#8]  <--- halt point for override X19 with new 'export' structure address
+	// 63 12 40 B9 - LDR W3, [X19,#0x10]
+
+	offset_svc_call_entry = 0x1998; // The entry point of a function that trigger BSD syscall 'mmap'
+	// B0 18 80 D2 - MOV X16, #197 <--- start for mmap wrapper
+	// 01 10 00 D4 - SVC 0x80
+	// E1 37 9F 9A - CSET X1, CS
+	// offset: 0x19A4:
+	// C0 03 5F D6 - RET <--- end of function
 	offset_svc_call_ret = offset_svc_call_entry + 0xc; // The return point of the above function
-
-	return;
 }
 
 auto OffsetFinder::determine_offsets() -> void {
 	// byte patterns in hex for the functions we need to find.
-	// I really don't know if it's wise to check for the whole function block, but I'm not really sure how much these can change between versions
-	const std::vector<unsigned char> loop_copy_func = {0x62, 0x06, 0x40, 0xf9, 0x63, 0x12, 0x40, 0xb9}; //, 0xe0, 0x05, 0x0f, 0x10, 0x1f, 0x20, 0x03, 0xd5};
-	const std::vector<unsigned char> svc_call = {0xb0, 0x18, 0x80, 0xd2, 0x01, 0x10, 0x00, 0xd4, 0xe1, 0x37, 0x9f, 0x9a, 0xc0, 0x03, 0x5f, 0xd6};
-	// For svc_call we need to check where this bitpattern starts in the code and also where it ends (we can just add 0xc to the start to get the end)
+	const std::vector<unsigned char> exports_fetch = {0x62, 0x06, 0x40, 0xF9, 0x63, 0x12, 0x40, 0xB9 };
+	const std::vector<unsigned char> svc_call = { 0xB0, 0x18, 0x80, 0xD2, 0x01, 0x10, 0x00, 0xD4, 0xE1, 0x37, 0x9F, 0x9A, 0xC0, 0x03, 0x5F, 0xD6 };
+	// For svc_call we need to check where this bitpattern starts in the code and also where it ends (we can just add 0xC to the start to get the end)
 
 	// Load rosetta runtime into an ifstream
 	std::ifstream file{"/usr/libexec/rosetta/runtime", std::ios::binary};
 
 	// Check if we were successfully able to load the file, if not abort and use default offsets
 	if (!file) {
-		printf("Problem accessing rosetta runtime to determine offsets automatically.\nFalling back to macOS 15.4.1 defaults (This WILL crash your app if they are not correct!)\n");
+		printf("Problem accessing rosetta runtime to determine offsets automatically.\nFalling back to macOS 26.0 defaults (This WILL crash your app if they are not correct!)\n");
 		return;
 	}
 
@@ -36,13 +47,13 @@ auto OffsetFinder::determine_offsets() -> void {
 
 	// read into the buffer
 	if (!file.read(reinterpret_cast<char *>(buffer.data()), size)) {
-		printf("Problem reading rosetta runtime to determine offsets automatically.\nFalling back to macOS 15.4.1 defaults (This WILL crash your app if they are not correct!)\n");
+		printf("Problem reading rosetta runtime to determine offsets automatically.\nFalling back to macOS 26.0 defaults (This WILL crash your app if they are not correct!)\n");
 		return;
 	}
 
 	// Do the search and store the results
 	std::vector<std::uint64_t> results;
-	for (const auto offset : {loop_copy_func, svc_call}) {
+	for (const auto offset : {exports_fetch, svc_call}) {
 		const std::boyer_moore_searcher searcher(offset.begin(), offset.end());
 		const auto it = std::search(buffer.begin(), buffer.end(), searcher);
 		if (it == buffer.end()) {
@@ -55,15 +66,14 @@ auto OffsetFinder::determine_offsets() -> void {
 
 	// If we've stored -1 in any offset, error out and fall back to non-accelerated x87 handles.
 	if ((int)results[0] <= -1 || (int)results[1] <= -1) {
-		printf("Problem searching rosetta runtime to determine offsets automatically.\nFalling back to macOS 15.4.1 defaults (This WILL crash your app if they are not correct!)\n");
+		printf("Problem searching rosetta runtime to determine offsets automatically.\nFalling back to macOS 26 defaults (This WILL crash your app if they are not correct!)\n");
 		return;
 	}
 
 	// Set the offsets to the results that we've found now that we know they're "correct".
-	offset_loop_copy_func = results[0];
+	offset_exports_fetch = results[0];
 	offset_svc_call_entry = results[1];
-	offset_svc_call_ret = offset_svc_call_entry + 0xc;
+	offset_svc_call_ret = offset_svc_call_entry + 0xC;
 
-	printf("Found rosetta runtime offsets successfully! noffset_loop_copy_func=%llx offset_svc_call_entry=%llx offset_svc_call_ret=%llx\n", offset_loop_copy_func, offset_svc_call_entry, offset_svc_call_ret);
-	return;
+	printf("Found rosetta runtime offsets successfully! offset_exports_fetch=%llx offset_svc_call_entry=%llx offset_svc_call_ret=%llx\n", offset_exports_fetch, offset_svc_call_entry, offset_svc_call_ret);
 }

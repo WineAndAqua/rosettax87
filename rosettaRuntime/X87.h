@@ -367,6 +367,9 @@ using get_segment_limit_t = decltype(&get_segment_limit);
 void translator_set_variant();
 using translator_set_variant_t = decltype(&translator_set_variant);
 
+void x87_set_init_state(X87State *);
+using x87_set_init_state_t = decltype(&x87_set_init_state);
+
 void runtime_cpuid();
 using runtime_cpuid_t = decltype(&runtime_cpuid);
 

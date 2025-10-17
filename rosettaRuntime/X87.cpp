@@ -2032,6 +2032,22 @@ X87_TRAMPOLINE(determine_state_recovery_action, x9)
 X87_TRAMPOLINE(get_segment_limit, x9)
 X87_TRAMPOLINE(translator_set_variant, x9)
 
+#if defined(X87_CONVERT_TO_FP80)
+X87_TRAMPOLINE_ARGS(void, x87_set_init_state, (X87State *state), x9);
+#else
+void x87_set_init_state(X87State *state) {
+	SIMDGuard simdGuard;
+	LOG(1, "x87_set_init_state\n", 9);
+
+	state->controlWord = 0x037F;
+	state->statusWord = 0x0000;
+	state->tagWord = 0xFFFF;
+	for (int i = 0; i < 8; i++) {
+		state->st[i].ieee754 = 0.0;
+	}
+}
+#endif
+
 X87_TRAMPOLINE(runtime_cpuid, x22)
 X87_TRAMPOLINE(runtime_wide_udiv_64, x9)
 X87_TRAMPOLINE(runtime_wide_sdiv_64, x9)
