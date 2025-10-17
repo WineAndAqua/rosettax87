@@ -24,8 +24,6 @@
 #include "macho_loader.hpp"
 #include "offset_finder.hpp"
 
-// #define WINE
-
 typedef const struct dyld_process_info_base *dyld_process_info;
 
 extern "C" dyld_process_info _dyld_process_info_create(task_t task, uint64_t timestamp, kern_return_t *kernelError);
@@ -38,8 +36,7 @@ private:
 	task_t taskPort;
 	static const unsigned int AARCH64_BREAKPOINT; // just declare here
 	std::map<uint64_t, unsigned int> breakpoints; // addr -> original instruction
-	static const int MAX_WATCHPOINTS = 4; // AArch64 typically has 4 hardware watchpoints
-	std::map<uint64_t, int> watchpoints; // address -> debug register index
+
 	bool waitForEvent(int *status) {
 		if (waitpid(childPid, status, 0) == -1) {
 			perror("waitpid");
@@ -48,99 +45,9 @@ private:
 		if (WIFSTOPPED(*status)) {
 			int signal = WSTOPSIG(*status);
 			printf("Process stopped signal=%d\n", signal);
-
-			if (signal == SIGBUS) {
-				printf("accessing thread\n");
-				arm_thread_state64_t thread_state;
-
-				thread_act_port_array_t thread_list;
-				mach_msg_type_number_t thread_count = 0; // Initialize to 0
-				// Get thread port
-				if (task_threads(taskPort, &thread_list, &thread_count) == KERN_SUCCESS) {
-					printf("task_threads succeeded, thread_count=%d\n", thread_count);
-
-					// Get register state
-					mach_msg_type_number_t state_count = ARM_THREAD_STATE64_COUNT;
-					kern_return_t kr = thread_get_state(thread_list[0], ARM_THREAD_STATE64, (thread_state_t)&thread_state, &state_count);
-					if (kr == KERN_SUCCESS) {
-						printf("Thread state:\n");
-						uint64_t pc = thread_state.__pc;
-
-						// Get VM region info
-						vm_address_t region_address = pc;
-						vm_size_t region_size;
-						vm_region_basic_info_data_64_t info;
-						mach_msg_type_number_t info_count = VM_REGION_BASIC_INFO_COUNT_64;
-						mach_port_t object_name;
-
-						if (vm_region_64(taskPort, &region_address, &region_size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &info_count, &object_name) == KERN_SUCCESS) {
-							printf("SIGBUS Details:\n");
-							printf("-> Fault Address: 0x%llx\n", pc);
-							printf("-> Region Start: 0x%lx\n", region_address);
-							printf("-> Region End: 0x%lx\n", region_address + region_size);
-							printf("-> Region Size: 0x%lx\n", region_size);
-							printf("-> Region Permissions: %c%c%c\n", (info.protection & VM_PROT_READ) ? 'r' : '-', (info.protection & VM_PROT_WRITE) ? 'w' : '-', (info.protection & VM_PROT_EXECUTE) ? 'x' : '-');
-							printf("-> Region Alignment: 0x%x\n", (unsigned int)region_address % 16);
-
-							// Print the instruction at the fault address
-							uint32_t instruction;
-							mach_vm_size_t size = sizeof(instruction);
-							if (mach_vm_read_overwrite(taskPort, pc, size, (mach_vm_address_t)&instruction, &size) == KERN_SUCCESS) {
-								printf("-> Instruction at Fault Address: 0x%x\n", instruction);
-							} else {
-								printf("-> Failed to read instruction at Fault Address\n");
-							}
-						}
-					} else {
-						printf("thread_get_state failed: %s\n", mach_error_string(kr));
-					}
-					mach_port_deallocate(mach_task_self(), thread_list[0]);
-				} else {
-					printf("task_threads failed\n");
-				}
-			}
+			return true;
 		}
-		return true;
-	}
-
-	const char *findModuleForAddress(uint64_t address) {
-		kern_return_t kr;
-		auto process_info = _dyld_process_info_create(taskPort, 0, &kr);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to get dyld process info (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return NULL;
-		}
-
-		__block const char *modpath = nullptr;
-
-		_dyld_process_info_for_each_image(process_info, ^(uint64_t machHeaderAddress, const uuid_t uuid, const char *path) { if (address == machHeaderAddress) { modpath = strdup(path); }});
-
-		return modpath ? modpath : strdup("<unknown>");
-	}
-
-	bool configureDebugRegisters(thread_act_port_array_t thread_list) {
-		arm_debug_state64_t debug_state;
-		mach_msg_type_number_t count = ARM_DEBUG_STATE64_COUNT;
-
-		kern_return_t kr = thread_get_state(thread_list[0], ARM_DEBUG_STATE64, (thread_state_t)&debug_state, &count);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to get debug state (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		// Enable monitor mode in MDSCR
-		debug_state.__mdscr_el1 |= 0x8000; // Set MDE bit (bit 15)
-
-		kr = thread_set_state(thread_list[0], ARM_DEBUG_STATE64, (thread_state_t)&debug_state, ARM_DEBUG_STATE64_COUNT);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to set debug state (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		return true;
+		return false;
 	}
 
 public:
@@ -199,20 +106,10 @@ public:
 			return false;
 		}
 
-		// usleep(250000);
-
 		printf("continueExecution waiting for event ..\n");
 
 		int status;
 		return waitForEvent(&status);
-	}
-
-	bool singleStep() {
-		if (ptrace(PT_STEP, childPid, (caddr_t)1, 0) < 0) {
-			perror("ptrace(PT_STEP)");
-			return false;
-		}
-		return true;
 	}
 
 	bool detach() {
@@ -278,22 +175,6 @@ public:
 		return 0;
 	}
 
-	uint64_t findModule(const char *moduleName) {
-		kern_return_t kr;
-		auto process_info = _dyld_process_info_create(taskPort, 0, &kr);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to get dyld process info (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return 0;
-		}
-
-		__block uint64_t machHeaderAddress = 0;
-
-		_dyld_process_info_for_each_image(process_info, ^(uint64_t address, const uuid_t uuid, const char *path) { if (strstr(path, moduleName)) { machHeaderAddress = address; }});
-
-		return machHeaderAddress;
-	}
-
 	bool setBreakpoint(uint64_t address) {
 		// Verify address is in valid range
 		if (address >= MACH_VM_MAX_ADDRESS) {
@@ -310,13 +191,10 @@ public:
 			return false;
 		}
 
-		// printf("read success\n");
 		// First, try to adjust memory protection
 		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY)) {
 			return false;
 		}
-
-		// printf("adjustMemoryProtection success\n");
 
 		// Write breakpoint instruction
 		kr = mach_vm_write(taskPort, address, (vm_offset_t)&AARCH64_BREAKPOINT, sizeof(unsigned int));
@@ -361,165 +239,10 @@ public:
 		return true;
 	}
 
-	bool isBreakpoint(uint64_t address) {
-		return breakpoints.find(address) != breakpoints.end();
-	}
-
-	bool listModules() {
-		task_t task;
-		if (task_for_pid(mach_task_self(), childPid, &task) != KERN_SUCCESS) {
-			printf("Failed to get task for pid %d\n", childPid);
-			return false;
-		}
-
-		mach_vm_address_t address = 0;
-		mach_vm_size_t size;
-		vm_region_basic_info_data_64_t info;
-		mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
-		mach_port_t object_name;
-
-		printf("Memory regions:\n");
-		while (true) {
-			if (mach_vm_region(task, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
-				break;
-			}
-
-			char permissions[4] = {(info.protection & VM_PROT_READ) ? 'r' : '-', (info.protection & VM_PROT_WRITE) ? 'w' : '-', (info.protection & VM_PROT_EXECUTE) ? 'x' : '-', '\0'};
-
-			const char *module = findModuleForAddress(address);
-			printf("0x%llx - 0x%llx %s %s\n", (unsigned long long)address, (unsigned long long)(address + size), permissions, module ? module : "<unknown>");
-			free((void *)module);
-
-			address += size;
-		}
-
-		mach_port_deallocate(mach_task_self(), task);
-		return true;
-	}
-
-	bool printRegisters() {
-		thread_act_port_array_t thread_list;
-		mach_msg_type_number_t thread_count;
-
-		kern_return_t kr = task_threads(taskPort, &thread_list, &thread_count);
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to get threads (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		// We'll use the first thread
-		arm_thread_state64_t state;
-		mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
-		kr = thread_get_state(thread_list[0], ARM_THREAD_STATE64, (thread_state_t)&state, &count);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to get thread state (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		// Print x0 through x28
-		for (int i = 0; i <= 28; i++) {
-			printf("x%-2d = 0x%016llx\n", i, state.__x[i]);
-		}
-
-		// Print special registers
-		printf("fp  = 0x%016llx\n", state.__fp);
-		printf("lr  = 0x%016llx\n", state.__lr);
-		printf("sp  = 0x%016llx\n", state.__sp);
-		printf("pc  = 0x%016llx\n", state.__pc);
-		printf("cpsr= 0x%08x\n", state.__cpsr);
-
-		// Cleanup
-		for (unsigned int i = 0; i < thread_count; i++) {
-			mach_port_deallocate(mach_task_self(), thread_list[i]);
-		}
-		vm_deallocate(mach_task_self(), (vm_address_t)thread_list, sizeof(thread_t) * thread_count);
-
-		return true;
-	}
-
-	bool printMemory(uint64_t address, size_t size) {
-		vm_offset_t buffer;
-		mach_msg_type_number_t read_size = (mach_msg_type_number_t)size;
-
-		kern_return_t kr = mach_vm_read(taskPort, address, size, &buffer, &read_size);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to read memory at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
-			return false;
-		}
-
-		// Print hexdump
-		uint8_t *data = (uint8_t *)buffer;
-		for (size_t i = 0; i < read_size; i += 16) {
-			// Print address
-			printf("%016llx: ", (unsigned long long)(address + i));
-
-			// Print hex bytes
-			for (size_t j = 0; j < 16; j++) {
-				if (i + j < read_size) {
-					printf("%02x ", data[i + j]);
-				} else {
-					printf("   ");
-				}
-				if (j == 7)
-					printf(" "); // Extra space between groups of 8
-			}
-
-			// Print ASCII representation
-			printf(" |");
-			for (size_t j = 0; j < 16; j++) {
-				if (i + j < read_size) {
-					uint8_t c = data[i + j];
-					printf("%c", (c >= 32 && c <= 126) ? c : '.');
-				} else {
-					printf(" ");
-				}
-			}
-			printf("|\n");
-		}
-
-		// Deallocate the buffer
-		vm_deallocate(mach_task_self(), buffer, read_size);
-		return true;
-	}
-
-	// Add this enum inside the class
 	enum Register {
-		X0,
-		X1,
-		X2,
-		X3,
-		X4,
-		X5,
-		X6,
-		X7,
-		X8,
-		X9,
-		X10,
-		X11,
-		X12,
-		X13,
-		X14,
-		X15,
-		X16,
-		X17,
-		X18,
-		X19,
-		X20,
-		X21,
-		X22,
-		X23,
-		X24,
-		X25,
-		X26,
-		X27,
-		X28,
-		FP,
-		LR,
-		SP,
-		PC,
-		CPSR
+		X0, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, X13, X14, X15,
+		X16, X17, X18, X19, X20, X21, X22, X23, X24, X25, X26, X27, X28,
+		FP, LR, SP, PC, CPSR
 	};
 
 	uint64_t readRegister(Register reg) {
@@ -735,193 +458,6 @@ public:
 		return true;
 	}
 
-	bool printStackTrace() {
-		arm_thread_state64_t state;
-		if (!copyThreadState(state)) {
-			return false;
-		}
-
-		uint64_t fp = state.__fp;
-		uint64_t lr = state.__lr;
-		uint64_t pc = state.__pc;
-
-		printf("Stack trace:\n");
-		printf("#0 0x%llx\n", pc);
-
-		int frame = 1;
-		// Follow frame pointers until we hit NULL or an invalid address
-		while (fp != 0 && frame < 32) { // Limit to 32 frames to prevent infinite loops
-			uint64_t prev_fp;
-			uint64_t prev_lr;
-
-			// Read previous frame pointer and link register
-			if (!readMemory(fp, &prev_fp, sizeof(prev_fp)) ||
-				!readMemory(fp + 8, &prev_lr, sizeof(prev_lr))) {
-				printf("Failed to read stack frame at 0x%llx\n", fp);
-				break;
-			}
-
-			// Print the frame
-			const char *module = findModuleForAddress(prev_lr);
-			printf("#%d 0x%llx %s\n", frame, prev_lr, module);
-			free((void *)module);
-
-			// Move to previous frame
-			fp = prev_fp;
-			frame++;
-		}
-
-		return true;
-	}
-
-	bool setWatchpoint(uint64_t address, size_t size) {
-		if (watchpoints.size() >= MAX_WATCHPOINTS) {
-			printf("No available hardware watchpoints\n");
-			return false;
-		}
-
-		// Size must be 1, 2, 4, or 8 bytes and address must be aligned
-		if (size != 1 && size != 2 && size != 4 && size != 8) {
-			printf("Invalid watchpoint size (must be 1, 2, 4, or 8)\n");
-			return false;
-		}
-
-		if (address & (size - 1)) {
-			printf("Address must be aligned to size\n");
-			return false;
-		}
-
-		thread_act_port_array_t thread_list;
-		mach_msg_type_number_t thread_count;
-
-		kern_return_t kr = task_threads(taskPort, &thread_list, &thread_count);
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to get threads (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		arm_debug_state64_t debug_state;
-		mach_msg_type_number_t count = ARM_DEBUG_STATE64_COUNT;
-
-		kr = thread_get_state(thread_list[0], ARM_DEBUG_STATE64, (thread_state_t)&debug_state, &count);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to get debug state (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		// Find first free debug register
-		int reg_idx = -1;
-		for (int i = 0; i < MAX_WATCHPOINTS; i++) {
-			if ((debug_state.__wcr[i] & 1) == 0) { // Check if watchpoint is disabled
-				reg_idx = i;
-				break;
-			}
-		}
-
-		if (reg_idx == -1) {
-			printf("No available hardware watchpoints\n");
-			return false;
-		}
-
-		// Configure watchpoint
-		debug_state.__wvr[reg_idx] = address;
-
-		// WCR bits:
-		// Bit 0: Enable
-		// Bits 1-3: Size encoding (001=1 byte, 010=2 bytes, 011=4 bytes, 100=8
-		// bytes) Bits 5-8: Access type (10 = write) Bits 20-28: Length mask
-		uint64_t wcr = 1; // Enable bit
-		switch (size) {
-		case 1:
-			wcr |= (1ULL << 1);
-			break;
-		case 2:
-			wcr |= (2ULL << 1);
-			break;
-		case 4:
-			wcr |= (3ULL << 1);
-			break;
-		case 8:
-			wcr |= (4ULL << 1);
-			break;
-		}
-		wcr |= (2ULL << 5); // Write access
-
-		debug_state.__wcr[reg_idx] = wcr;
-
-		// Enable monitor mode if not already enabled
-		if ((debug_state.__mdscr_el1 & 0x8000) == 0) {
-			debug_state.__mdscr_el1 |= 0x8000;
-		}
-
-		kr = thread_set_state(thread_list[0], ARM_DEBUG_STATE64, (thread_state_t)&debug_state, ARM_DEBUG_STATE64_COUNT);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to set debug state (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		watchpoints[address] = reg_idx;
-		printf("Watchpoint set at address 0x%llx (size=%zu)\n", address, size);
-
-		// Cleanup
-		for (unsigned int i = 0; i < thread_count; i++) {
-			mach_port_deallocate(mach_task_self(), thread_list[i]);
-		}
-		vm_deallocate(mach_task_self(), (vm_address_t)thread_list, sizeof(thread_t) * thread_count);
-
-		return true;
-	}
-
-	bool removeWatchpoint(uint64_t address) {
-		auto it = watchpoints.find(address);
-		if (it == watchpoints.end()) {
-			printf("No watchpoint found at address 0x%llx\n", address);
-			return false;
-		}
-
-		thread_act_port_array_t thread_list;
-		mach_msg_type_number_t thread_count;
-
-		kern_return_t kr = task_threads(taskPort, &thread_list, &thread_count);
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to get threads (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		arm_debug_state64_t debug_state;
-		mach_msg_type_number_t count = ARM_DEBUG_STATE64_COUNT;
-
-		kr = thread_get_state(thread_list[0], ARM_DEBUG_STATE64, (thread_state_t)&debug_state, &count);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to get debug state (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		// Disable the watchpoint
-		debug_state.__wcr[it->second] = 0;
-
-		kr = thread_set_state(thread_list[0], ARM_DEBUG_STATE64, (thread_state_t)&debug_state, ARM_DEBUG_STATE64_COUNT);
-
-		if (kr != KERN_SUCCESS) {
-			printf("Failed to set debug state (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return false;
-		}
-
-		watchpoints.erase(it);
-		printf("Watchpoint removed from address 0x%llx\n", address);
-
-		// Cleanup
-		for (unsigned int i = 0; i < thread_count; i++) {
-			mach_port_deallocate(mach_task_self(), thread_list[i]);
-		}
-		vm_deallocate(mach_task_self(), (vm_address_t)thread_list, sizeof(thread_t) * thread_count);
-
-		return true;
-	}
-
 	~MuhDebugger() {
 		if (taskPort != MACH_PORT_NULL) {
 			mach_port_deallocate(mach_task_self(), taskPort);
@@ -945,96 +481,12 @@ struct Export {
 	uint64_t name;
 };
 
-std::string get_process_name(int pid) {
-	char name[PROC_PIDPATHINFO_MAXSIZE];
-	if (proc_name(pid, name, sizeof(name)) <= 0) {
-		return ""; // Empty string if failed
-	}
-	return std::string(name);
-}
-#include <sys/sysctl.h>
-
-std::string get_process_cmdline(int pid) {
-	int mib[4] = {CTL_KERN, KERN_PROCARGS2, pid, 0};
-	size_t size = 0;
-
-	// Get buffer size
-	if (sysctl(mib, 3, NULL, &size, NULL, 0) < 0) {
-		return "";
-	}
-
-	// Allocate buffer
-	char *buffer = (char *)malloc(size);
-	if (!buffer) {
-		return "";
-	}
-
-	// Get process args
-	if (sysctl(mib, 3, buffer, &size, NULL, 0) < 0) {
-		free(buffer);
-		return "";
-	}
-
-	// First int in buffer is argc
-	int argc = *(int *)buffer;
-	printf("process argc count: %d\n", argc);
-
-	// Skip argc and executable path
-	char *p = buffer + sizeof(int);
-	while (*p != '\0')
-		p++;
-	p++;
-
-	while (*p == '\0')
-		p++;
-
-	// Build command line string
-	std::string cmdline;
-	for (int i = 0; i < argc && *p != '\0'; i++) {
-		if (i > 0)
-			cmdline += " ";
-		cmdline += p;
-		while (*p != '\0')
-			p++;
-		p++;
-	}
-
-	free(buffer);
-	return cmdline;
-}
-
 int main(int argc, char *argv[]) {
 	if (argc < 2) {
 		printf("call with program\n");
 		return 1;
 	}
 
-	int pid = atoi(argv[1]);
-
-	// called not with pid arg = argument is process to run
-	if (pid == 0) {
-		pid = getpid();
-		printf("Called with non pid. Launching debugger.\n");
-
-		// Fork and execute new instance
-		pid_t child = fork();
-
-		// the debugger will be this process debugging its child
-		if (child != 0) {
-			// the parent will be the debugger
-			char child_str[32];
-			snprintf(child_str, sizeof(child_str), "%d", child);
-
-			// Get path to current executable
-			char path[4096];
-			uint32_t path_size = sizeof(path);
-			if (_NSGetExecutablePath(path, &path_size) == 0) {
-				char *args[] = {path, child_str, NULL};
-				execv(path, args);
-				perror("execv");
-			}
-			exit(1);
-		}
 	printf("Launching debugger.\n");
 
 	// Fork and execute new instance
