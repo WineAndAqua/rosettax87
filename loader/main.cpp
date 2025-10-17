@@ -70,9 +70,12 @@ public:
 
 	bool attach(pid_t pid) {
 		childPid = pid;
-		printf("attempting to attach to %d\n", childPid);
+		printf("Attempting to attach to %d\n", childPid);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		if (ptrace(PT_ATTACH, childPid, 0, 0) < 0) {
-			perror("ptrace(PT_ATTACHEXC)");
+#pragma clang diagnostic pop
+			perror("ptrace(PT_ATTACH)");
 			return false;
 		}
 
