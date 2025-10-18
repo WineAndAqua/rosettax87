@@ -298,19 +298,19 @@ struct X87State {
 	}
 
 	// Get index of top register
-	auto topIndex() const -> unsigned int {
+	auto topIndex() const -> uint32_t {
 		return (statusWord >> 11) & 7;
 	} // Get reference to top register
 
 	// Get index of ST(i) register
-	auto getStIndex(unsigned int stOffset) const -> unsigned int {
+	auto getStIndex(uint32_t stOffset) const -> uint32_t {
 		return (stOffset + topIndex()) & 7;
 	}
 
 	// Get value from register at ST(i). Checks tag bits for validity, returns 0.0
 	// if empty. Updates status word.
-	__attribute__((always_inline)) auto getSt(unsigned int stOffset) -> double {
-		const unsigned int regIdx = getStIndex(stOffset);
+	__attribute__((always_inline)) auto getSt(uint32_t stOffset) -> double {
+		const uint32_t regIdx = getStIndex(stOffset);
 		const auto tag = static_cast<X87TagState>((tagWord >> (regIdx * 2)) & 3);
 		if (tag == X87TagState::kEmpty) {
 			// FP_X_STK | FP_X_INV
@@ -324,8 +324,8 @@ struct X87State {
 #endif
 	}
 
-	auto getStConst(unsigned int stOffset) const -> std::pair<double, uint16_t> {
-		const unsigned int regIdx = getStIndex(stOffset);
+	auto getStConst(uint32_t stOffset) const -> std::pair<double, uint16_t> {
+		const uint32_t regIdx = getStIndex(stOffset);
 		const X87TagState tag = static_cast<X87TagState>((tagWord >> (regIdx * 2)) & 3);
 
 		uint16_t newStatusWord = statusWord & ~(X87StatusWordFlag::kConditionCode1);
@@ -343,8 +343,8 @@ struct X87State {
 #endif
 	}
 
-	auto getStConst32(unsigned int stOffset) const -> std::pair<float, uint16_t> {
-		const unsigned int regIdx = getStIndex(stOffset);
+	auto getStConst32(uint32_t stOffset) const -> std::pair<float, uint16_t> {
+		const uint32_t regIdx = getStIndex(stOffset);
 		const X87TagState tag = static_cast<X87TagState>((tagWord >> (regIdx * 2)) & 3);
 
 		uint16_t newStatusWord = statusWord & ~(X87StatusWordFlag::kConditionCode1);
@@ -362,8 +362,8 @@ struct X87State {
 #endif
 	}
 
-	__attribute__((always_inline)) auto getStTag(unsigned int stOffset) const -> X87TagState {
-		const unsigned int regIdx = getStIndex(stOffset);
+	__attribute__((always_inline)) auto getStTag(uint32_t stOffset) const -> X87TagState {
+		const uint32_t regIdx = getStIndex(stOffset);
 		return static_cast<X87TagState>((tagWord >> (regIdx * 2)) & 3);
 	}
 
@@ -384,7 +384,7 @@ struct X87State {
 		statusWord = (statusWord & ~X87StatusWordFlag::kTopOfStack) | (((currentTop + 1) & 7) << 11);
 	}
 
-	__attribute__((always_inline)) auto setSt(unsigned int stOffset, double value) -> void {
+	__attribute__((always_inline)) auto setSt(uint32_t stOffset, double value) -> void {
 		auto stIdx = getStIndex(stOffset);
 
 #if !defined(X87_CONVERT_TO_FP80)
@@ -407,8 +407,8 @@ struct X87State {
 		tagWord |= (static_cast<int>(tag) << (stIdx * 2));
 	}
 
-	__attribute__((always_inline)) auto setStFast(unsigned int stOffset, double value) -> void {
-		const unsigned int idx = getStIndex(stOffset);
+	__attribute__((always_inline)) auto setStFast(uint32_t stOffset, double value) -> void {
+		const uint32_t idx = getStIndex(stOffset);
 
 #if !defined(X87_CONVERT_TO_FP80)
 		// Direct IEEE-754 store
@@ -423,9 +423,9 @@ struct X87State {
 	}
 
 	// Fast path: bypass tag-checks, assume value valid
-	__attribute__((always_inline)) auto getStFast(unsigned int stOffset) const -> double {
+	__attribute__((always_inline)) auto getStFast(uint32_t stOffset) const -> double {
 		// Compute absolute slot index
-		const unsigned int idx = getStIndex(stOffset);
+		const uint32_t idx = getStIndex(stOffset);
 #if !defined(X87_CONVERT_TO_FP80)
 		// Direct IEEE-754 load
 		return st[idx].ieee754;
@@ -435,7 +435,7 @@ struct X87State {
 #endif
 	}
 
-	auto swap_registers(unsigned int regOffset1, unsigned int regOffset2) -> void {
+	auto swap_registers(uint32_t regOffset1, uint32_t regOffset2) -> void {
 		// Swap register contents
 		auto regIdx1 = getStIndex(regOffset1);
 		auto regIdx2 = getStIndex(regOffset2);
