@@ -326,27 +326,6 @@ public:
 		return true;
 	}
 
-	uint64_t allocateMemory(size_t size) {
-		mach_vm_address_t address = 0; // Let system choose the address
-
-		kern_return_t kr = mach_vm_allocate(taskPort_, &address, size, VM_FLAGS_ANYWHERE);
-
-		if (kr != KERN_SUCCESS) {
-			fprintf(stderr, "Failed to allocate memory (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return 0;
-		}
-
-		// Set memory protection to RWX
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE, size)) {
-			// If protection fails, deallocate the memory
-			mach_vm_deallocate(taskPort_, address, size);
-			return 0;
-		}
-
-		LOG("Allocated %zu bytes at 0x%llx\n", size, address);
-		return address;
-	}
-
 	bool copyThreadState(arm_thread_state64_t &state) {
 		thread_act_port_array_t threadList;
 		mach_msg_type_number_t threadCount;
@@ -400,39 +379,22 @@ public:
 		return true;
 	}
 
-	struct ModuleInfo {
-		uintptr_t address;
-		std::string path;
-	};
-
-	auto getModuleList() -> std::vector<ModuleInfo> {
-		__block std::vector<ModuleInfo> moduleList;
-		kern_return_t kr;
-		auto process_info = _dyld_process_info_create(taskPort_, 0, &kr);
-
-		if (kr != KERN_SUCCESS) {
-			fprintf(stderr, "Failed to get dyld process info (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return moduleList;
-		}
-
-		_dyld_process_info_for_each_image(process_info, ^(uint64_t address, const uuid_t uuid, const char *path) { moduleList.push_back({address, std::string(path)}); });
-
-		return moduleList;
-	}
-
 	auto findRuntime() -> uintptr_t {
-		auto moduleList = getModuleList();
-
-		auto runtimeIt = std::find_if(moduleList.begin(), moduleList.end(), [](const ModuleInfo &module) { return module.path == "/usr/libexec/rosetta/runtime"; });
-		if (runtimeIt != moduleList.end()) {
-			return runtimeIt->address;
-		}
-
 		mach_vm_address_t address = 0;
 		mach_vm_size_t size;
 		vm_region_basic_info_data_64_t info;
 		mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
 		mach_port_t objectName;
+		kern_return_t kr;
+		__block std::vector<uintptr_t> moduleList;
+
+		auto processInfo = _dyld_process_info_create(taskPort_, 0, &kr);
+		if (kr != KERN_SUCCESS) {
+			fprintf(stderr, "Failed to get dyld process info (error 0x%x: %s)\n", kr, mach_error_string(kr));
+			return 0;
+		}
+		_dyld_process_info_for_each_image(processInfo, ^(uint64_t address, const uuid_t uuid, const char *path) { moduleList.push_back(address); });
+		_dyld_process_info_release(processInfo);
 
 		while (true) {
 			if (mach_vm_region(taskPort_, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &count, &objectName) != KERN_SUCCESS) {
@@ -440,7 +402,7 @@ public:
 			}
 
 			if (info.protection & (VM_PROT_EXECUTE | VM_PROT_READ)) {
-				if (std::find_if(moduleList.begin(), moduleList.end(), [address](const ModuleInfo &module) { return address == module.address; }) == moduleList.end()) {
+				if (std::find_if(moduleList.begin(), moduleList.end(), [address](const uintptr_t &moduleAddress) { return address == moduleAddress; }) == moduleList.end()) {
 					uint32_t magicBytes;
 					if (readMemory(address, &magicBytes, sizeof(magicBytes)) && magicBytes == MH_MAGIC_64) {
 						return address;
@@ -514,12 +476,6 @@ int main(int argc, char *argv[]) {
 		    offsetFinder.offsetExportsFetch_, offsetFinder.offsetSvcCallEntry_, offsetFinder.offsetSvcCallRet_);
 	}
 
-	auto moduleList = dbg.getModuleList();
-
-	for (const auto &module : moduleList) {
-		LOG("address %lx, name %s\n", module.address, module.path.c_str());
-	}
-
 	const auto runtimeBase = dbg.findRuntime();
 
 	LOG("Rosetta runtime base: 0x%lx\n", runtimeBase);
@@ -542,8 +498,8 @@ int main(int argc, char *argv[]) {
 	LOG("Rosetta version: %llx\n", exports.version);
 
 	char path[PATH_MAX];
-	uint32_t path_size = sizeof(path);
-	if (_NSGetExecutablePath(path, &path_size) != 0) {
+	uint32_t pathSize = sizeof(path);
+	if (_NSGetExecutablePath(path, &pathSize) != 0) {
 		fprintf(stderr, "Failed to get executable path\n");
 		return 1;
 	}
@@ -553,15 +509,10 @@ int main(int argc, char *argv[]) {
 	std::filesystem::path executableDir = executablePath.parent_path();
 
 	MachoLoader machoLoader;
-
 	if (!machoLoader.open(executableDir / "libRuntimeRosettax87")) {
 		fprintf(stderr, "Failed to open Mach-O file\n");
 		return 1;
 	}
-
-	// we need to call mmap to allocate the memory for our macho
-
-	uint64_t machoBase = 0; // dbg.allocateMemory(macho_loader.image_size());
 
 	// first we store the original state of the thread
 	arm_thread_state64_t backupThreadState;
@@ -586,7 +537,7 @@ int main(int argc, char *argv[]) {
 	dbg.continueExecution();
 	dbg.removeBreakpoint(runtimeBase + offsetFinder.offsetSvcCallRet_);
 
-	machoBase = dbg.readRegister(MuhDebugger::Register::X0);
+	uint64_t machoBase = dbg.readRegister(MuhDebugger::Register::X0);
 
 	LOG("Allocated memory at 0x%llx\n", machoBase);
 
