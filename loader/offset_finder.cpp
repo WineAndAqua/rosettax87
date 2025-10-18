@@ -24,7 +24,7 @@ auto OffsetFinder::setDefaultOffsets() -> void {
 	offsetSvcCallRet_ = offsetSvcCallEntry_ + 0xC; // The return point of the above function
 }
 
-auto OffsetFinder::determineOffsets() -> void {
+auto OffsetFinder::determineOffsets() -> bool {
 	// byte patterns in hex for the functions we need to find.
 	const std::vector<unsigned char> exportsFetch = {0x62, 0x06, 0x40, 0xF9, 0x63, 0x12, 0x40, 0xB9 };
 	const std::vector<unsigned char> svcCall = { 0xB0, 0x18, 0x80, 0xD2, 0x01, 0x10, 0x00, 0xD4, 0xE1, 0x37, 0x9F, 0x9A, 0xC0, 0x03, 0x5F, 0xD6 };
@@ -35,8 +35,8 @@ auto OffsetFinder::determineOffsets() -> void {
 
 	// Check if we were successfully able to load the file, if not abort and use default offsets
 	if (!file) {
-		printf("Problem accessing rosetta runtime to determine offsets automatically.\nFalling back to macOS 26.0 defaults (This WILL crash your app if they are not correct!)\n");
-		return;
+		fprintf(stderr, "Problem accessing rosetta runtime to determine offsets automatically.\nFalling back to macOS 26.0 defaults (This WILL crash your app if they are not correct!)\n");
+		return false;
 	}
 
 	// Determine size of rosetta runtime file
@@ -49,8 +49,8 @@ auto OffsetFinder::determineOffsets() -> void {
 
 	// read into the buffer
 	if (!file.read(reinterpret_cast<char *>(buffer.data()), size)) {
-		printf("Problem reading rosetta runtime to determine offsets automatically.\nFalling back to macOS 26.0 defaults (This WILL crash your app if they are not correct!)\n");
-		return;
+		fprintf(stderr, "Problem reading rosetta runtime to determine offsets automatically.\nFalling back to macOS 26.0 defaults (This WILL crash your app if they are not correct!)\n");
+		return false;
 	}
 
 	// Do the search and store the results
@@ -59,7 +59,7 @@ auto OffsetFinder::determineOffsets() -> void {
 		const std::boyer_moore_searcher searcher(offset.begin(), offset.end());
 		const auto it = std::search(buffer.begin(), buffer.end(), searcher);
 		if (it == buffer.end()) {
-			std::cout << "Offset not found in rosetta runtime binary\n";
+			fprintf(stderr, "Offset not found in rosetta runtime binary\n");
 			results.push_back(-1);
 		} else {
 			results.push_back((std::uint64_t)std::distance(buffer.begin(), it));
@@ -68,8 +68,8 @@ auto OffsetFinder::determineOffsets() -> void {
 
 	// If we've stored -1 in any offset, error out and fall back to non-accelerated x87 handles.
 	if ((int)results[0] <= -1 || (int)results[1] <= -1) {
-		printf("Problem searching rosetta runtime to determine offsets automatically.\nFalling back to macOS 26 defaults (This WILL crash your app if they are not correct!)\n");
-		return;
+		fprintf(stderr, "Problem searching rosetta runtime to determine offsets automatically.\nFalling back to macOS 26 defaults (This WILL crash your app if they are not correct!)\n");
+		return false;
 	}
 
 	// Set the offsets to the results that we've found now that we know they're "correct".
@@ -77,5 +77,5 @@ auto OffsetFinder::determineOffsets() -> void {
 	offsetSvcCallEntry_ = results[1];
 	offsetSvcCallRet_ = offsetSvcCallEntry_ + 0xC;
 
-	printf("Found rosetta runtime offsets successfully! offset_exports_fetch=%llx offset_svc_call_entry=%llx offset_svc_call_ret=%llx\n", offsetExportsFetch_, offsetSvcCallEntry_, offsetSvcCallRet_);
+	return true;
 }

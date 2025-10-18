@@ -4,7 +4,7 @@
 
 struct OffsetFinder {
 	auto setDefaultOffsets() -> void;
-	auto determineOffsets() -> void;
+	auto determineOffsets() -> bool;
 
 	std::uint64_t offsetExportsFetch_;
 	std::uint64_t offsetSvcCallEntry_;
