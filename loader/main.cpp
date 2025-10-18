@@ -435,7 +435,7 @@ struct Export {
 
 int main(int argc, char *argv[]) {
 	if (argc < 2) {
-		LOG("call with program\n");
+		fprintf(stderr, "%s <path to program>\n", argv[0]);
 		return 1;
 	}
 
@@ -453,7 +453,7 @@ int main(int argc, char *argv[]) {
 			perror("child: ptrace(PT_TRACE_ME)");
 			return 1;
 		}
-		LOG("child: launching into program\n");
+		LOG("child: launching into program: %s\n", argv[1]);
 		execv(argv[1], &argv[1]);
 		return 1;
 	}
