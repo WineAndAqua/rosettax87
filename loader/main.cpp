@@ -29,8 +29,8 @@ class MuhDebugger {
 private:
 	static const uint32_t AARCH64_BREAKPOINT; // just declare here
 
-	pid_t childPid_;
-	task_t taskPort_;
+	pid_t childPid_ = -1;
+	task_t taskPort_ = MACH_PORT_NULL;
 	std::map<uint64_t, uint32_t> breakpoints_; // addr -> original instruction
 
 	bool waitForStopped() {
