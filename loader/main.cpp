@@ -48,21 +48,11 @@ private:
 	}
 
 public:
-	bool adjustMemoryProtection(uint64_t address, vm_prot_t protection, mach_vm_size_t size) {
-		// 4KB page size in rosetta process
-		vm_size_t pageSize = 0x1000;
-		// align to page boundary
-		mach_vm_address_t region = address & ~(pageSize - 1);
-		size = ((address + size + pageSize - 1) & ~(pageSize - 1)) - region;
 
-		LOG("Adjusting memory protection at 0x%llx - 0x%llx\n", (uint64_t)region, (uint64_t)(region + size));
-
-		kern_return_t kr = mach_vm_protect(taskPort_, region, size, FALSE, protection);
-		if (kr != KERN_SUCCESS) {
-			fprintf(stderr, "Failed to adjust memory protection at 0x%llx - 0x%llx (error 0x%x: %s)\n", (uint64_t)region, (uint64_t)(region + size), kr, mach_error_string(kr));
-			return false;
+	~MuhDebugger() {
+		if (taskPort_ != MACH_PORT_NULL) {
+			mach_port_deallocate(mach_task_self(), taskPort_);
 		}
-		return true;
 	}
 
 	bool attach(pid_t pid) {
@@ -112,60 +102,6 @@ public:
 		}
 		LOG("Debugger detached.\n");
 		return true;
-	}
-
-	struct ModuleInfo {
-		uintptr_t address;
-		std::string path;
-	};
-
-	auto getModuleList() -> std::vector<ModuleInfo> {
-		__block std::vector<ModuleInfo> moduleList;
-		kern_return_t kr;
-		auto process_info = _dyld_process_info_create(taskPort_, 0, &kr);
-
-		if (kr != KERN_SUCCESS) {
-			fprintf(stderr, "Failed to get dyld process info (error 0x%x: %s)\n", kr, mach_error_string(kr));
-			return moduleList;
-		}
-
-		_dyld_process_info_for_each_image(process_info, ^(uint64_t address, const uuid_t uuid, const char *path) { moduleList.push_back({address, std::string(path)}); });
-
-		return moduleList;
-	}
-
-	auto findRuntime() -> uintptr_t {
-		auto moduleList = getModuleList();
-
-		auto runtimeIt = std::find_if(moduleList.begin(), moduleList.end(), [](const ModuleInfo &module) { return module.path == "/usr/libexec/rosetta/runtime"; });
-		if (runtimeIt != moduleList.end()) {
-			return runtimeIt->address;
-		}
-
-		mach_vm_address_t address = 0;
-		mach_vm_size_t size;
-		vm_region_basic_info_data_64_t info;
-		mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
-		mach_port_t objectName;
-
-		while (true) {
-			if (mach_vm_region(taskPort_, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &count, &objectName) != KERN_SUCCESS) {
-				break;
-			}
-
-			if (info.protection & (VM_PROT_EXECUTE | VM_PROT_READ)) {
-				if (std::find_if(moduleList.begin(), moduleList.end(), [address](const ModuleInfo &module) { return address == module.address; }) == moduleList.end()) {
-					uint32_t magicBytes;
-					if (readMemory(address, &magicBytes, sizeof(magicBytes)) && magicBytes == MH_MAGIC_64) {
-						return address;
-					}
-				}
-			}
-
-			address += size;
-		}
-
-		return 0;
 	}
 
 	bool setBreakpoint(uint64_t address) {
@@ -352,6 +288,23 @@ public:
 		return true;
 	}
 
+	bool adjustMemoryProtection(uint64_t address, vm_prot_t protection, mach_vm_size_t size) {
+		// 4KB page size in rosetta process
+		vm_size_t pageSize = 0x1000;
+		// align to page boundary
+		mach_vm_address_t region = address & ~(pageSize - 1);
+		size = ((address + size + pageSize - 1) & ~(pageSize - 1)) - region;
+
+		LOG("Adjusting memory protection at 0x%llx - 0x%llx\n", (uint64_t)region, (uint64_t)(region + size));
+
+		kern_return_t kr = mach_vm_protect(taskPort_, region, size, FALSE, protection);
+		if (kr != KERN_SUCCESS) {
+			fprintf(stderr, "Failed to adjust memory protection at 0x%llx - 0x%llx (error 0x%x: %s)\n", (uint64_t)region, (uint64_t)(region + size), kr, mach_error_string(kr));
+			return false;
+		}
+		return true;
+	}
+
 	bool readMemory(uint64_t address, void *buffer, size_t size) {
 		mach_vm_size_t readSize;
 
@@ -450,10 +403,58 @@ public:
 		return true;
 	}
 
-	~MuhDebugger() {
-		if (taskPort_ != MACH_PORT_NULL) {
-			mach_port_deallocate(mach_task_self(), taskPort_);
+	struct ModuleInfo {
+		uintptr_t address;
+		std::string path;
+	};
+
+	auto getModuleList() -> std::vector<ModuleInfo> {
+		__block std::vector<ModuleInfo> moduleList;
+		kern_return_t kr;
+		auto process_info = _dyld_process_info_create(taskPort_, 0, &kr);
+
+		if (kr != KERN_SUCCESS) {
+			fprintf(stderr, "Failed to get dyld process info (error 0x%x: %s)\n", kr, mach_error_string(kr));
+			return moduleList;
 		}
+
+		_dyld_process_info_for_each_image(process_info, ^(uint64_t address, const uuid_t uuid, const char *path) { moduleList.push_back({address, std::string(path)}); });
+
+		return moduleList;
+	}
+
+	auto findRuntime() -> uintptr_t {
+		auto moduleList = getModuleList();
+
+		auto runtimeIt = std::find_if(moduleList.begin(), moduleList.end(), [](const ModuleInfo &module) { return module.path == "/usr/libexec/rosetta/runtime"; });
+		if (runtimeIt != moduleList.end()) {
+			return runtimeIt->address;
+		}
+
+		mach_vm_address_t address = 0;
+		mach_vm_size_t size;
+		vm_region_basic_info_data_64_t info;
+		mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
+		mach_port_t objectName;
+
+		while (true) {
+			if (mach_vm_region(taskPort_, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &count, &objectName) != KERN_SUCCESS) {
+				break;
+			}
+
+			if (info.protection & (VM_PROT_EXECUTE | VM_PROT_READ)) {
+				if (std::find_if(moduleList.begin(), moduleList.end(), [address](const ModuleInfo &module) { return address == module.address; }) == moduleList.end()) {
+					uint32_t magicBytes;
+					if (readMemory(address, &magicBytes, sizeof(magicBytes)) && magicBytes == MH_MAGIC_64) {
+						return address;
+					}
+				}
+			}
+
+			address += size;
+		}
+
+		return 0;
 	}
 };
 
