@@ -111,13 +111,10 @@ public:
 			return false;
 		}
 
-		uint32_t original;
-		mach_vm_size_t readSize;
-
 		// Read the original instruction
-		kern_return_t kr = mach_vm_read_overwrite(taskPort_, address, sizeof(uint32_t), (mach_vm_address_t)&original, &readSize);
-		if (kr != KERN_SUCCESS) {
-			fprintf(stderr, "Failed to read memory at 0x%llx (error 0x%x: %s)\n", address, kr, mach_error_string(kr));
+		uint32_t original;
+		if (!readMemory(address, &original, sizeof(uint32_t))) {
+			fprintf(stderr, "Failed to read memory at 0x%llx\n", address);
 			return false;
 		}
 
@@ -127,11 +124,11 @@ public:
 		}
 
 		// Write breakpoint instruction
-		kr = mach_vm_write(taskPort_, address, (vm_offset_t)&AARCH64_BREAKPOINT, sizeof(uint32_t));
-		if (kr != KERN_SUCCESS) {
-			fprintf(stderr, "Failed to write breakpoint at 0x%llx (error 0x%x: %s)\n", address, kr, mach_error_string(kr));
+		if (!writeMemory(address, &AARCH64_BREAKPOINT, sizeof(uint32_t))) {
+			fprintf(stderr, "Failed to write breakpoint at 0x%llx\n", address);
 			return false;
 		}
+
 		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE, sizeof(uint32_t))) {
 			return false;
 		}
@@ -154,11 +151,11 @@ public:
 		}
 
 		// Restore original instruction
-		kern_return_t kr = mach_vm_write(taskPort_, address, (vm_offset_t)&it->second, sizeof(uint32_t));
-		if (kr != KERN_SUCCESS) {
-			fprintf(stderr, "Failed to restore original instruction at 0x%llx (error 0x%x: %s)\n", address, kr, mach_error_string(kr));
+		if (!writeMemory(address, &it->second, sizeof(uint32_t))) {
+			fprintf(stderr, "Failed to restore original instruction at 0x%llx\n", address);
 			return false;
 		}
+
 		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE, sizeof(uint32_t))) {
 			return false;
 		}
@@ -297,7 +294,7 @@ public:
 
 		LOG("Adjusting memory protection at 0x%llx - 0x%llx\n", (uint64_t)region, (uint64_t)(region + size));
 
-		kern_return_t kr = mach_vm_protect(taskPort_, region, size, FALSE, protection);
+		kern_return_t kr = mach_vm_protect(taskPort_, region, size, false, protection);
 		if (kr != KERN_SUCCESS) {
 			fprintf(stderr, "Failed to adjust memory protection at 0x%llx - 0x%llx (error 0x%x: %s)\n", (uint64_t)region, (uint64_t)(region + size), kr, mach_error_string(kr));
 			return false;
