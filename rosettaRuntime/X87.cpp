@@ -4,8 +4,6 @@
 #include "SIMDGuard.h"
 #include "X87State.h"
 
-#include "openlibm_math.h"
-
 #include <cstring>
 
 #define X87_F2XM1
