@@ -1,4 +1,5 @@
 #include "Log.h"
+
 #include <cmath>
 
 auto syscallWrite(int fd, const char *buf, uint64_t count) -> uint64_t {
