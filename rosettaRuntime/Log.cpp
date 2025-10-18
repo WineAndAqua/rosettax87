@@ -104,7 +104,7 @@ __attribute__((no_stack_protector, optnone)) void simplePrintf(const char *forma
 					*--numPtr = digit < 10 ? '0' + digit : 'a' + (digit - 10);
 					p >>= 4;
 				} while (p != 0);
-				// // Pad with zeros to ensure 16 digits
+				// Pad with zeros to ensure 16 digits
 				while (numPtr > numBuf + 2) {
 					*--numPtr = '0';
 				}

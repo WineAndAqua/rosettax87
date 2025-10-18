@@ -41,7 +41,7 @@ struct X87ResultStatusWord {
 };
 static_assert(sizeof(X87ResultStatusWord) == 0x10);
 
-void *init_library(SymbolList const *, unsigned long long, ThreadContextOffsets const *);
+void *init_library(SymbolList const *, uint64_t, ThreadContextOffsets const *);
 using init_library_t = decltype(&init_library);
 
 void register_runtime_routine_offsets();
@@ -116,16 +116,16 @@ using x87_f2xm1_t = decltype(&x87_f2xm1);
 void x87_fabs(X87State *);
 using x87_fabs_t = decltype(&x87_fabs);
 
-void x87_fadd_ST(X87State *, unsigned int, unsigned int, bool);
+void x87_fadd_ST(X87State *, uint32_t, uint32_t, bool);
 using x87_fadd_ST_t = decltype(&x87_fadd_ST);
 
-void x87_fadd_f32(X87State *, unsigned int);
+void x87_fadd_f32(X87State *, uint32_t);
 using x87_fadd_f32_t = decltype(&x87_fadd_f32);
 
-void x87_fadd_f64(X87State *, unsigned long long);
+void x87_fadd_f64(X87State *, uint64_t);
 using x87_fadd_f64_t = decltype(&x87_fadd_f64);
 
-void x87_fbld(X87State *, unsigned long long, unsigned long long);
+void x87_fbld(X87State *, uint64_t, uint64_t);
 using x87_fbld_t = decltype(&x87_fbld);
 
 struct uint128_t {
@@ -139,19 +139,19 @@ using x87_fbstp_t = decltype(&x87_fbstp);
 void x87_fchs(X87State *);
 using x87_fchs_t = decltype(&x87_fchs);
 
-void x87_fcmov(X87State *, unsigned int, unsigned int);
+void x87_fcmov(X87State *, uint32_t, uint32_t);
 using x87_fcmov_t = decltype(&x87_fcmov);
 
-void x87_fcom_ST(X87State *, unsigned int, unsigned int);
+void x87_fcom_ST(X87State *, uint32_t, uint32_t);
 using x87_fcom_ST_t = decltype(&x87_fcom_ST);
 
-void x87_fcom_f32(X87State *, unsigned int, bool);
+void x87_fcom_f32(X87State *, uint32_t, bool);
 using x87_fcom_f32_t = decltype(&x87_fcom_f32);
 
-void x87_fcom_f64(X87State *, unsigned long long, bool);
+void x87_fcom_f64(X87State *, uint64_t, bool);
 using x87_fcom_f64_t = decltype(&x87_fcom_f64);
 
-uint32_t x87_fcomi(X87State *, unsigned int, bool);
+uint32_t x87_fcomi(X87State *, uint32_t, bool);
 using x87_fcomi_t = decltype(&x87_fcomi);
 
 void x87_fcos(X87State *);
@@ -160,43 +160,43 @@ using x87_fcos_t = decltype(&x87_fcos);
 void x87_fdecstp(X87State *);
 using x87_fdecstp_t = decltype(&x87_fdecstp);
 
-void x87_fdiv_ST(X87State *, unsigned int, unsigned int, bool);
+void x87_fdiv_ST(X87State *, uint32_t, uint32_t, bool);
 using x87_fdiv_ST_t = decltype(&x87_fdiv_ST);
 
-void x87_fdiv_f32(X87State *, unsigned int);
+void x87_fdiv_f32(X87State *, uint32_t);
 using x87_fdiv_f32_t = decltype(&x87_fdiv_f32);
 
-void x87_fdiv_f64(X87State *, unsigned long long);
+void x87_fdiv_f64(X87State *, uint64_t);
 using x87_fdiv_f64_t = decltype(&x87_fdiv_f64);
 
-void x87_fdivr_ST(X87State *, unsigned int, unsigned int, bool);
+void x87_fdivr_ST(X87State *, uint32_t, uint32_t, bool);
 using x87_fdivr_ST_t = decltype(&x87_fdivr_ST);
 
-void x87_fdivr_f32(X87State *, unsigned int);
+void x87_fdivr_f32(X87State *, uint32_t);
 using x87_fdivr_f32_t = decltype(&x87_fdivr_f32);
 
-void x87_fdivr_f64(X87State *, unsigned long long);
+void x87_fdivr_f64(X87State *, uint64_t);
 using x87_fdivr_f64_t = decltype(&x87_fdivr_f64);
 
-void x87_ffree(X87State *, unsigned int);
+void x87_ffree(X87State *, uint32_t);
 using x87_ffree_t = decltype(&x87_ffree);
 
-void x87_fiadd(X87State *, int);
+void x87_fiadd(X87State *, int32_t);
 using x87_fiadd_t = decltype(&x87_fiadd);
 
-void x87_ficom(X87State *, int, bool);
+void x87_ficom(X87State *, int32_t, bool);
 using x87_ficom_t = decltype(&x87_ficom);
 
-void x87_fidiv(X87State *, int);
+void x87_fidiv(X87State *, int32_t);
 using x87_fidiv_t = decltype(&x87_fidiv);
 
-void x87_fidivr(X87State *, int);
+void x87_fidivr(X87State *, int32_t);
 using x87_fidivr_t = decltype(&x87_fidivr);
 
 void x87_fild(X87State *, int64_t);
 using x87_fild_t = decltype(&x87_fild);
 
-void x87_fimul(X87State *, int);
+void x87_fimul(X87State *, int32_t);
 using x87_fimul_t = decltype(&x87_fimul);
 
 void x87_fincstp(X87State *);
@@ -220,34 +220,34 @@ using x87_fistt_i32_t = decltype(&x87_fistt_i32);
 X87ResultStatusWord x87_fistt_i64(X87State const *);
 using x87_fistt_i64_t = decltype(&x87_fistt_i64);
 
-void x87_fisub(X87State *, int);
+void x87_fisub(X87State *, int32_t);
 using x87_fisub_t = decltype(&x87_fisub);
 
-void x87_fisubr(X87State *, int);
+void x87_fisubr(X87State *, int32_t);
 using x87_fisubr_t = decltype(&x87_fisubr);
 
-void x87_fld_STi(X87State *, unsigned int);
+void x87_fld_STi(X87State *, uint32_t);
 using x87_fld_STi_t = decltype(&x87_fld_STi);
 
 void x87_fld_constant(X87State *, X87Constant);
 using x87_fld_constant_t = decltype(&x87_fld_constant);
 
-void x87_fld_fp32(X87State *, unsigned int);
+void x87_fld_fp32(X87State *, uint32_t);
 using x87_fld_fp32_t = decltype(&x87_fld_fp32);
 
-void x87_fld_fp64(X87State *, unsigned long long);
+void x87_fld_fp64(X87State *, uint64_t);
 using x87_fld_fp64_t = decltype(&x87_fld_fp64);
 
 void x87_fld_fp80(X87State *, X87Float80);
 using x87_fld_fp80_t = decltype(&x87_fld_fp80);
 
-void x87_fmul_ST(X87State *, unsigned int, unsigned int, bool);
+void x87_fmul_ST(X87State *, uint32_t, uint32_t, bool);
 using x87_fmul_ST_t = decltype(&x87_fmul_ST);
 
-void x87_fmul_f32(X87State *, unsigned int);
+void x87_fmul_f32(X87State *, uint32_t);
 using x87_fmul_f32_t = decltype(&x87_fmul_f32);
 
-void x87_fmul_f64(X87State *, unsigned long long);
+void x87_fmul_f64(X87State *, uint64_t);
 using x87_fmul_f64_t = decltype(&x87_fmul_f64);
 
 void x87_fpatan(X87State *);
@@ -277,7 +277,7 @@ using x87_fsincos_t = decltype(&x87_fsincos);
 void x87_fsqrt(X87State *);
 using x87_fsqrt_t = decltype(&x87_fsqrt);
 
-void x87_fst_STi(X87State *, unsigned int, bool);
+void x87_fst_STi(X87State *, uint32_t, bool);
 using x87_fst_STi_t = decltype(&x87_fst_STi);
 
 X87ResultStatusWord x87_fst_fp32(X87State const *);
@@ -289,34 +289,34 @@ using x87_fst_fp64_t = decltype(&x87_fst_fp64);
 X87Float80StatusWordResult x87_fst_fp80(X87State const *);
 using x87_fst_fp80_t = decltype(&x87_fst_fp80);
 
-void x87_fsub_ST(X87State *, unsigned int, unsigned int, bool);
+void x87_fsub_ST(X87State *, uint32_t, uint32_t, bool);
 using x87_fsub_ST_t = decltype(&x87_fsub_ST);
 
-void x87_fsub_f32(X87State *, unsigned int);
+void x87_fsub_f32(X87State *, uint32_t);
 using x87_fsub_f32_t = decltype(&x87_fsub_f32);
 
-void x87_fsub_f64(X87State *, unsigned long long);
+void x87_fsub_f64(X87State *, uint64_t);
 using x87_fsub_f64_t = decltype(&x87_fsub_f64);
 
-void x87_fsubr_ST(X87State *, unsigned int, unsigned int, bool);
+void x87_fsubr_ST(X87State *, uint32_t, uint32_t, bool);
 using x87_fsubr_ST_t = decltype(&x87_fsubr_ST);
 
-void x87_fsubr_f32(X87State *, unsigned int);
+void x87_fsubr_f32(X87State *, uint32_t);
 using x87_fsubr_f32_t = decltype(&x87_fsubr_f32);
 
-void x87_fsubr_f64(X87State *, unsigned long long);
+void x87_fsubr_f64(X87State *, uint64_t);
 using x87_fsubr_f64_t = decltype(&x87_fsubr_f64);
 
-void x87_fucom(X87State *, unsigned int, unsigned int);
+void x87_fucom(X87State *, uint32_t, uint32_t);
 using x87_fucom_t = decltype(&x87_fucom);
 
-uint32_t x87_fucomi(X87State *, unsigned int, bool);
+uint32_t x87_fucomi(X87State *, uint32_t, bool);
 using x87_fucomi_t = decltype(&x87_fucomi);
 
 void x87_fxam(X87State *);
 using x87_fxam_t = decltype(&x87_fxam);
 
-void x87_fxch(X87State *, unsigned int);
+void x87_fxch(X87State *, uint32_t);
 using x87_fxch_t = decltype(&x87_fxch);
 
 void x87_fxtract(X87State *);

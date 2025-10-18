@@ -1,8 +1,9 @@
+#include <stdint.h>
 #include <stdio.h>
 
 int main() {
 	// For storing CPUID results
-	unsigned int eax, ebx, ecx, edx;
+	uint32_t eax, ebx, ecx, edx;
 
 	// Get vendor ID string (EAX=0)
 	char vendor[13]; // 12 characters plus null terminator
@@ -12,9 +13,9 @@ int main() {
 	                   : "a"(0));
 
 	// The vendor string is stored in EBX, EDX, ECX in that order
-	*((unsigned int *)vendor) = ebx;
-	*((unsigned int *)(vendor + 4)) = edx;
-	*((unsigned int *)(vendor + 8)) = ecx;
+	*((uint32_t *)vendor) = ebx;
+	*((uint32_t *)(vendor + 4)) = edx;
+	*((uint32_t *)(vendor + 8)) = ecx;
 	vendor[12] = '\0';
 
 	printf("CPU Vendor: %s\n", vendor);
@@ -25,12 +26,12 @@ int main() {
 	                   : "a"(1));
 
 	// Extract processor information from EAX
-	unsigned int stepping = eax & 0xF;
-	unsigned int model = (eax >> 4) & 0xF;
-	unsigned int family = (eax >> 8) & 0xF;
-	unsigned int type = (eax >> 12) & 0x3;
-	unsigned int extModel = (eax >> 16) & 0xF;
-	unsigned int extFamily = (eax >> 20) & 0xFF;
+	uint32_t stepping = eax & 0xF;
+	uint32_t model = (eax >> 4) & 0xF;
+	uint32_t family = (eax >> 8) & 0xF;
+	uint32_t type = (eax >> 12) & 0x3;
+	uint32_t extModel = (eax >> 16) & 0xF;
+	uint32_t extFamily = (eax >> 20) & 0xFF;
 
 	// Print processor information
 	printf("CPU Info:\n");

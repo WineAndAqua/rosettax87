@@ -18,11 +18,11 @@ extern "C" void _dyld_process_info_release(DyldProcessInfo info);
 
 class MuhDebugger {
 private:
-	static const unsigned int AARCH64_BREAKPOINT; // just declare here
+	static const uint32_t AARCH64_BREAKPOINT; // just declare here
 
 	pid_t childPid_;
 	task_t taskPort_;
-	std::map<uint64_t, unsigned int> breakpoints_; // addr -> original instruction
+	std::map<uint64_t, uint32_t> breakpoints_; // addr -> original instruction
 
 	bool waitForEvent(int *status) {
 		if (waitpid(childPid_, status, 0) == -1) {
@@ -161,64 +161,64 @@ public:
 	bool setBreakpoint(uint64_t address) {
 		// Verify address is in valid range
 		if (address >= MACH_VM_MAX_ADDRESS) {
-			printf("Invalid address 0x%llx\n", (unsigned long long)address);
+			printf("Invalid address 0x%llx\n", address);
 			return false;
 		}
 		unsigned int original;
 		mach_vm_size_t readSize;
 
 		// Read the original instruction
-		kern_return_t kr = mach_vm_read_overwrite(taskPort_, address, sizeof(unsigned int), (mach_vm_address_t)&original, &readSize);
+		kern_return_t kr = mach_vm_read_overwrite(taskPort_, address, sizeof(uint32_t), (mach_vm_address_t)&original, &readSize);
 		if (kr != KERN_SUCCESS) {
-			printf("Failed to read memory at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
+			printf("Failed to read memory at 0x%llx (error 0x%x: %s)\n", address, kr, mach_error_string(kr));
 			return false;
 		}
 
 		// First, try to adjust memory protection
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY, sizeof(unsigned int))) {
+		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY, sizeof(uint32_t))) {
 			return false;
 		}
 
 		// Write breakpoint instruction
-		kr = mach_vm_write(taskPort_, address, (vm_offset_t)&AARCH64_BREAKPOINT, sizeof(unsigned int));
+		kr = mach_vm_write(taskPort_, address, (vm_offset_t)&AARCH64_BREAKPOINT, sizeof(uint32_t));
 		if (kr != KERN_SUCCESS) {
-			printf("Failed to write breakpoint at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
+			printf("Failed to write breakpoint at 0x%llx (error 0x%x: %s)\n", address, kr, mach_error_string(kr));
 			return false;
 		}
 		// printf("write success\n");
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE, sizeof(unsigned int))) {
+		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE, sizeof(uint32_t))) {
 			return false;
 		}
 
 		// printf("adjustMemoryProtection success\n");
 		breakpoints_[address] = original;
-		printf("Breakpoint set at address 0x%llx\n", (unsigned long long)address);
+		printf("Breakpoint set at address 0x%llx\n", address);
 		return true;
 	}
 
 	bool removeBreakpoint(uint64_t address) {
 		auto it = breakpoints_.find(address);
 		if (it == breakpoints_.end()) {
-			printf("No breakpoint found at address 0x%llx\n", (unsigned long long)address);
+			printf("No breakpoint found at address 0x%llx\n", address);
 			return false;
 		}
 
 		// First, try to adjust memory protection
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE, sizeof(unsigned int))) {
+		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE, sizeof(uint32_t))) {
 			return false;
 		}
 
 		// Restore original instruction
-		kern_return_t kr = mach_vm_write(taskPort_, address, (vm_offset_t)&it->second, sizeof(unsigned int));
+		kern_return_t kr = mach_vm_write(taskPort_, address, (vm_offset_t)&it->second, sizeof(uint32_t));
 		if (kr != KERN_SUCCESS) {
-			printf("Failed to restore original instruction at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
+			printf("Failed to restore original instruction at 0x%llx (error 0x%x: %s)\n", address, kr, mach_error_string(kr));
 			return false;
 		}
-		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE, sizeof(unsigned int))) {
+		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE, sizeof(uint32_t))) {
 			return false;
 		}
 		breakpoints_.erase(it);
-		printf("Breakpoint removed from address 0x%llx\n", (unsigned long long)address);
+		printf("Breakpoint removed from address 0x%llx\n", address);
 		return true;
 	}
 
@@ -335,7 +335,7 @@ public:
 		}
 
 		// Cleanup
-		for (unsigned int i = 0; i < threadCount; i++) {
+		for (uint i = 0; i < threadCount; i++) {
 			mach_port_deallocate(mach_task_self(), threadList[i]);
 		}
 		vm_deallocate(mach_task_self(), (vm_address_t)threadList, sizeof(thread_t) * threadCount);
@@ -349,7 +349,7 @@ public:
 		kern_return_t kr = mach_vm_read_overwrite(taskPort_, address, size, (mach_vm_address_t)buffer, &readSize);
 
 		if (kr != KERN_SUCCESS) {
-			printf("Failed to read memory at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
+			printf("Failed to read memory at 0x%llx (error 0x%x: %s)\n", address, kr, mach_error_string(kr));
 			return false;
 		}
 
@@ -360,7 +360,7 @@ public:
 		kern_return_t kr = mach_vm_write(taskPort_, address, (vm_offset_t)buffer, size);
 
 		if (kr != KERN_SUCCESS) {
-			printf("Failed to write memory at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
+			printf("Failed to write memory at 0x%llx (error 0x%x: %s)\n", address, kr, mach_error_string(kr));
 			return false;
 		}
 
@@ -384,7 +384,7 @@ public:
 			return 0;
 		}
 
-		printf("Allocated %zu bytes at 0x%llx\n", size, (unsigned long long)address);
+		printf("Allocated %zu bytes at 0x%llx\n", size, address);
 		return address;
 	}
 
@@ -402,7 +402,7 @@ public:
 		kr = thread_get_state(threadList[0], ARM_THREAD_STATE64, (thread_state_t)&state, &count);
 
 		// Cleanup
-		for (unsigned int i = 0; i < threadCount; i++) {
+		for (uint i = 0; i < threadCount; i++) {
 			mach_port_deallocate(mach_task_self(), threadList[i]);
 		}
 		vm_deallocate(mach_task_self(), (vm_address_t)threadList, sizeof(thread_t) * threadCount);
@@ -428,7 +428,7 @@ public:
 		kr = thread_set_state(threadList[0], ARM_THREAD_STATE64, (thread_state_t)&state, ARM_THREAD_STATE64_COUNT);
 
 		// Cleanup
-		for (unsigned int i = 0; i < threadCount; i++) {
+		for (uint i = 0; i < threadCount; i++) {
 			mach_port_deallocate(mach_task_self(), threadList[i]);
 		}
 		vm_deallocate(mach_task_self(), (vm_address_t)threadList, sizeof(thread_t) * threadCount);
@@ -584,7 +584,7 @@ int main(int argc, char *argv[]) {
 		auto size = segm->vmsize;
 		auto src = machoLoader.buffer_.data() + segm->fileoff;
 
-		printf("Copying segment %s from 0x%llx to 0x%llx (%zx bytes)\n", segm->segname, (unsigned long long)segm->fileoff, (unsigned long long)dest, (unsigned long)size);
+		printf("Copying segment %s from 0x%llx to 0x%llx (%zx bytes)\n", segm->segname, segm->fileoff, dest, (size_t)size);
 
 		dbg.writeMemory(dest, src, size);
 
