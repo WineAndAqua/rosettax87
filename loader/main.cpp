@@ -24,21 +24,22 @@
 #include "macho_loader.hpp"
 #include "offset_finder.hpp"
 
-typedef const struct dyld_process_info_base *dyld_process_info;
+typedef const struct dyld_process_info_base *DyldProcessInfo;
 
-extern "C" dyld_process_info _dyld_process_info_create(task_t task, uint64_t timestamp, kern_return_t *kernelError);
-extern "C" void _dyld_process_info_for_each_image(dyld_process_info info, void (^callback)(uint64_t machHeaderAddress, const uuid_t uuid, const char *path));
-extern "C" void _dyld_process_info_release(dyld_process_info info);
+extern "C" DyldProcessInfo _dyld_process_info_create(task_t task, uint64_t timestamp, kern_return_t *kernelError);
+extern "C" void _dyld_process_info_for_each_image(DyldProcessInfo info, void (^callback)(uint64_t machHeaderAddress, const uuid_t uuid, const char *path));
+extern "C" void _dyld_process_info_release(DyldProcessInfo info);
 
 class MuhDebugger {
 private:
-	pid_t childPid;
-	task_t taskPort;
 	static const unsigned int AARCH64_BREAKPOINT; // just declare here
-	std::map<uint64_t, unsigned int> breakpoints; // addr -> original instruction
+
+	pid_t childPid_;
+	task_t taskPort_;
+	std::map<uint64_t, unsigned int> breakpoints_; // addr -> original instruction
 
 	bool waitForEvent(int *status) {
-		if (waitpid(childPid, status, 0) == -1) {
+		if (waitpid(childPid_, status, 0) == -1) {
 			perror("waitpid");
 			return false;
 		}
@@ -60,7 +61,7 @@ public:
 
 		printf("Adjusting memory protection at 0x%llx - 0x%llx\n", (uint64_t)region, (uint64_t)(region + size));
 
-		kern_return_t kr = mach_vm_protect(taskPort, region, size, FALSE, protection);
+		kern_return_t kr = mach_vm_protect(taskPort_, region, size, FALSE, protection);
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to adjust memory protection at 0x%llx - 0x%llx (error 0x%x: %s)\n", (uint64_t)region, (uint64_t)(region + size), kr, mach_error_string(kr));
 			return false;
@@ -69,11 +70,11 @@ public:
 	}
 
 	bool attach(pid_t pid) {
-		childPid = pid;
-		printf("Attempting to attach to %d\n", childPid);
+		childPid_ = pid;
+		printf("Attempting to attach to %d\n", childPid_);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-		if (ptrace(PT_ATTACH, childPid, 0, 0) < 0) {
+		if (ptrace(PT_ATTACH, childPid_, 0, 0) < 0) {
 #pragma clang diagnostic pop
 			perror("ptrace(PT_ATTACH)");
 			return false;
@@ -87,17 +88,17 @@ public:
 			printf("Failed to continue execution\n");
 			return false;
 		}
-		if (task_for_pid(mach_task_self(), childPid, &taskPort) != KERN_SUCCESS) {
-			printf("Failed to get task port for pid %d\n", childPid);
+		if (task_for_pid(mach_task_self(), childPid_, &taskPort_) != KERN_SUCCESS) {
+			printf("Failed to get task port for pid %d\n", childPid_);
 			return false;
 		}
 		printf("Program stopped due to execv into rosetta process.\n");
-		printf("Started debugging process %d using port %d\n", childPid, taskPort);
+		printf("Started debugging process %d using port %d\n", childPid_, taskPort_);
 		return true;
 	}
 
 	bool continueExecution() {
-		if (ptrace(PT_CONTINUE, childPid, (caddr_t)1, 0) < 0) {
+		if (ptrace(PT_CONTINUE, childPid_, (caddr_t)1, 0) < 0) {
 			perror("ptrace(PT_CONTINUE)");
 			return false;
 		}
@@ -109,7 +110,7 @@ public:
 	}
 
 	bool detach() {
-		if (ptrace(PT_DETACH, childPid, (caddr_t)1, 0) < 0) {
+		if (ptrace(PT_DETACH, childPid_, (caddr_t)1, 0) < 0) {
 			perror("ptrace(PT_DETACH)");
 			return false;
 		}
@@ -125,7 +126,7 @@ public:
 	auto getModuleList() -> std::vector<ModuleInfo> {
 		__block std::vector<ModuleInfo> moduleList;
 		kern_return_t kr;
-		auto process_info = _dyld_process_info_create(taskPort, 0, &kr);
+		auto process_info = _dyld_process_info_create(taskPort_, 0, &kr);
 
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to get dyld process info (error 0x%x: %s)\n", kr, mach_error_string(kr));
@@ -137,29 +138,29 @@ public:
 		return moduleList;
 	}
 
-	auto find_runtime() -> uintptr_t {
-		auto module_list = getModuleList();
+	auto findRuntime() -> uintptr_t {
+		auto moduleList = getModuleList();
 
-		auto runtime_it = std::find_if(module_list.begin(), module_list.end(), [](const ModuleInfo &module) { return module.path == "/usr/libexec/rosetta/runtime"; });
-		if (runtime_it != module_list.end()) {
-			return runtime_it->address;
+		auto runtimeIt = std::find_if(moduleList.begin(), moduleList.end(), [](const ModuleInfo &module) { return module.path == "/usr/libexec/rosetta/runtime"; });
+		if (runtimeIt != moduleList.end()) {
+			return runtimeIt->address;
 		}
 
 		mach_vm_address_t address = 0;
 		mach_vm_size_t size;
 		vm_region_basic_info_data_64_t info;
 		mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
-		mach_port_t object_name;
+		mach_port_t objectName;
 
 		while (true) {
-			if (mach_vm_region(taskPort, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
+			if (mach_vm_region(taskPort_, &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &count, &objectName) != KERN_SUCCESS) {
 				break;
 			}
 
 			if (info.protection & (VM_PROT_EXECUTE | VM_PROT_READ)) {
-				if (std::find_if(module_list.begin(), module_list.end(), [address](const ModuleInfo &module) { return address == module.address; }) == module_list.end()) {
-					uint32_t magic_bytes;
-					if (readMemory(address, &magic_bytes, sizeof(magic_bytes)) && magic_bytes == MH_MAGIC_64) {
+				if (std::find_if(moduleList.begin(), moduleList.end(), [address](const ModuleInfo &module) { return address == module.address; }) == moduleList.end()) {
+					uint32_t magicBytes;
+					if (readMemory(address, &magicBytes, sizeof(magicBytes)) && magicBytes == MH_MAGIC_64) {
 						return address;
 					}
 				}
@@ -178,10 +179,10 @@ public:
 			return false;
 		}
 		unsigned int original;
-		mach_vm_size_t read_size;
+		mach_vm_size_t readSize;
 
 		// Read the original instruction
-		kern_return_t kr = mach_vm_read_overwrite(taskPort, address, sizeof(unsigned int), (mach_vm_address_t)&original, &read_size);
+		kern_return_t kr = mach_vm_read_overwrite(taskPort_, address, sizeof(unsigned int), (mach_vm_address_t)&original, &readSize);
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to read memory at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
 			return false;
@@ -193,7 +194,7 @@ public:
 		}
 
 		// Write breakpoint instruction
-		kr = mach_vm_write(taskPort, address, (vm_offset_t)&AARCH64_BREAKPOINT, sizeof(unsigned int));
+		kr = mach_vm_write(taskPort_, address, (vm_offset_t)&AARCH64_BREAKPOINT, sizeof(unsigned int));
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to write breakpoint at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
 			return false;
@@ -204,14 +205,14 @@ public:
 		}
 
 		// printf("adjustMemoryProtection success\n");
-		breakpoints[address] = original;
+		breakpoints_[address] = original;
 		printf("Breakpoint set at address 0x%llx\n", (unsigned long long)address);
 		return true;
 	}
 
 	bool removeBreakpoint(uint64_t address) {
-		auto it = breakpoints.find(address);
-		if (it == breakpoints.end()) {
+		auto it = breakpoints_.find(address);
+		if (it == breakpoints_.end()) {
 			printf("No breakpoint found at address 0x%llx\n", (unsigned long long)address);
 			return false;
 		}
@@ -222,7 +223,7 @@ public:
 		}
 
 		// Restore original instruction
-		kern_return_t kr = mach_vm_write(taskPort, address, (vm_offset_t)&it->second, sizeof(unsigned int));
+		kern_return_t kr = mach_vm_write(taskPort_, address, (vm_offset_t)&it->second, sizeof(unsigned int));
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to restore original instruction at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
 			return false;
@@ -230,7 +231,7 @@ public:
 		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_EXECUTE, sizeof(unsigned int))) {
 			return false;
 		}
-		breakpoints.erase(it);
+		breakpoints_.erase(it);
 		printf("Breakpoint removed from address 0x%llx\n", (unsigned long long)address);
 		return true;
 	}
@@ -242,10 +243,10 @@ public:
 	};
 
 	uint64_t readRegister(Register reg) {
-		thread_act_port_array_t thread_list;
-		mach_msg_type_number_t thread_count;
+		thread_act_port_array_t threadList;
+		mach_msg_type_number_t threadCount;
 
-		kern_return_t kr = task_threads(taskPort, &thread_list, &thread_count);
+		kern_return_t kr = task_threads(taskPort_, &threadList, &threadCount);
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to get threads (error 0x%x: %s)\n", kr, mach_error_string(kr));
 			return 0;
@@ -253,7 +254,7 @@ public:
 
 		arm_thread_state64_t state;
 		mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
-		kr = thread_get_state(thread_list[0], ARM_THREAD_STATE64, (thread_state_t)&state, &count);
+		kr = thread_get_state(threadList[0], ARM_THREAD_STATE64, (thread_state_t)&state, &count);
 
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to get thread state (error 0x%x: %s)\n", kr, mach_error_string(kr));
@@ -288,19 +289,19 @@ public:
 		}
 
 		// Cleanup
-		for (unsigned int i = 0; i < thread_count; i++) {
-			mach_port_deallocate(mach_task_self(), thread_list[i]);
+		for (unsigned int i = 0; i < threadCount; i++) {
+			mach_port_deallocate(mach_task_self(), threadList[i]);
 		}
-		vm_deallocate(mach_task_self(), (vm_address_t)thread_list, sizeof(thread_t) * thread_count);
+		vm_deallocate(mach_task_self(), (vm_address_t)threadList, sizeof(thread_t) * threadCount);
 
 		return value;
 	}
 
 	bool setRegister(Register reg, uint64_t value) {
-		thread_act_port_array_t thread_list;
-		mach_msg_type_number_t thread_count;
+		thread_act_port_array_t threadList;
+		mach_msg_type_number_t threadCount;
 
-		kern_return_t kr = task_threads(taskPort, &thread_list, &thread_count);
+		kern_return_t kr = task_threads(taskPort_, &threadList, &threadCount);
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to get threads (error 0x%x: %s)\n", kr, mach_error_string(kr));
 			return false;
@@ -308,7 +309,7 @@ public:
 
 		arm_thread_state64_t state;
 		mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
-		kr = thread_get_state(thread_list[0], ARM_THREAD_STATE64, (thread_state_t)&state, &count);
+		kr = thread_get_state(threadList[0], ARM_THREAD_STATE64, (thread_state_t)&state, &count);
 
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to get thread state (error 0x%x: %s)\n", kr, mach_error_string(kr));
@@ -341,36 +342,36 @@ public:
 			}
 		}
 
-		kr = thread_set_state(thread_list[0], ARM_THREAD_STATE64, (thread_state_t)&state, ARM_THREAD_STATE64_COUNT);
+		kr = thread_set_state(threadList[0], ARM_THREAD_STATE64, (thread_state_t)&state, ARM_THREAD_STATE64_COUNT);
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to set thread state (error 0x%x: %s)\n", kr, mach_error_string(kr));
 			return false;
 		}
 
 		// Cleanup
-		for (unsigned int i = 0; i < thread_count; i++) {
-			mach_port_deallocate(mach_task_self(), thread_list[i]);
+		for (unsigned int i = 0; i < threadCount; i++) {
+			mach_port_deallocate(mach_task_self(), threadList[i]);
 		}
-		vm_deallocate(mach_task_self(), (vm_address_t)thread_list, sizeof(thread_t) * thread_count);
+		vm_deallocate(mach_task_self(), (vm_address_t)threadList, sizeof(thread_t) * threadCount);
 
 		return true;
 	}
 
 	bool readMemory(uint64_t address, void *buffer, size_t size) {
-		mach_vm_size_t read_size;
+		mach_vm_size_t readSize;
 
-		kern_return_t kr = mach_vm_read_overwrite(taskPort, address, size, (mach_vm_address_t)buffer, &read_size);
+		kern_return_t kr = mach_vm_read_overwrite(taskPort_, address, size, (mach_vm_address_t)buffer, &readSize);
 
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to read memory at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
 			return false;
 		}
 
-		return read_size == size;
+		return readSize == size;
 	}
 
 	bool writeMemory(uint64_t address, const void *buffer, size_t size) {
-		kern_return_t kr = mach_vm_write(taskPort, address, (vm_offset_t)buffer, size);
+		kern_return_t kr = mach_vm_write(taskPort_, address, (vm_offset_t)buffer, size);
 
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to write memory at 0x%llx (error 0x%x: %s)\n", (unsigned long long)address, kr, mach_error_string(kr));
@@ -383,7 +384,7 @@ public:
 	uint64_t allocateMemory(size_t size) {
 		mach_vm_address_t address = 0; // Let system choose the address
 
-		kern_return_t kr = mach_vm_allocate(taskPort, &address, size, VM_FLAGS_ANYWHERE);
+		kern_return_t kr = mach_vm_allocate(taskPort_, &address, size, VM_FLAGS_ANYWHERE);
 
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to allocate memory (error 0x%x: %s)\n", kr, mach_error_string(kr));
@@ -393,7 +394,7 @@ public:
 		// Set memory protection to RWX
 		if (!adjustMemoryProtection(address, VM_PROT_READ | VM_PROT_WRITE, size)) {
 			// If protection fails, deallocate the memory
-			mach_vm_deallocate(taskPort, address, size);
+			mach_vm_deallocate(taskPort_, address, size);
 			return 0;
 		}
 
@@ -402,23 +403,23 @@ public:
 	}
 
 	bool copyThreadState(arm_thread_state64_t &state) {
-		thread_act_port_array_t thread_list;
-		mach_msg_type_number_t thread_count;
+		thread_act_port_array_t threadList;
+		mach_msg_type_number_t threadCount;
 
-		kern_return_t kr = task_threads(taskPort, &thread_list, &thread_count);
+		kern_return_t kr = task_threads(taskPort_, &threadList, &threadCount);
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to get threads (error 0x%x: %s)\n", kr, mach_error_string(kr));
 			return false;
 		}
 
 		mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
-		kr = thread_get_state(thread_list[0], ARM_THREAD_STATE64, (thread_state_t)&state, &count);
+		kr = thread_get_state(threadList[0], ARM_THREAD_STATE64, (thread_state_t)&state, &count);
 
 		// Cleanup
-		for (unsigned int i = 0; i < thread_count; i++) {
-			mach_port_deallocate(mach_task_self(), thread_list[i]);
+		for (unsigned int i = 0; i < threadCount; i++) {
+			mach_port_deallocate(mach_task_self(), threadList[i]);
 		}
-		vm_deallocate(mach_task_self(), (vm_address_t)thread_list, sizeof(thread_t) * thread_count);
+		vm_deallocate(mach_task_self(), (vm_address_t)threadList, sizeof(thread_t) * threadCount);
 
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to get thread state (error 0x%x: %s)\n", kr, mach_error_string(kr));
@@ -429,22 +430,22 @@ public:
 	}
 
 	bool restoreThreadState(const arm_thread_state64_t &state) {
-		thread_act_port_array_t thread_list;
-		mach_msg_type_number_t thread_count;
+		thread_act_port_array_t threadList;
+		mach_msg_type_number_t threadCount;
 
-		kern_return_t kr = task_threads(taskPort, &thread_list, &thread_count);
+		kern_return_t kr = task_threads(taskPort_, &threadList, &threadCount);
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to get threads (error 0x%x: %s)\n", kr, mach_error_string(kr));
 			return false;
 		}
 
-		kr = thread_set_state(thread_list[0], ARM_THREAD_STATE64, (thread_state_t)&state, ARM_THREAD_STATE64_COUNT);
+		kr = thread_set_state(threadList[0], ARM_THREAD_STATE64, (thread_state_t)&state, ARM_THREAD_STATE64_COUNT);
 
 		// Cleanup
-		for (unsigned int i = 0; i < thread_count; i++) {
-			mach_port_deallocate(mach_task_self(), thread_list[i]);
+		for (unsigned int i = 0; i < threadCount; i++) {
+			mach_port_deallocate(mach_task_self(), threadList[i]);
 		}
-		vm_deallocate(mach_task_self(), (vm_address_t)thread_list, sizeof(thread_t) * thread_count);
+		vm_deallocate(mach_task_self(), (vm_address_t)threadList, sizeof(thread_t) * threadCount);
 
 		if (kr != KERN_SUCCESS) {
 			printf("Failed to set thread state (error 0x%x: %s)\n", kr, mach_error_string(kr));
@@ -455,8 +456,8 @@ public:
 	}
 
 	~MuhDebugger() {
-		if (taskPort != MACH_PORT_NULL) {
-			mach_port_deallocate(mach_task_self(), taskPort);
+		if (taskPort_ != MACH_PORT_NULL) {
+			mach_port_deallocate(mach_task_self(), taskPort_);
 		}
 	}
 };
@@ -466,10 +467,10 @@ const unsigned int MuhDebugger::AARCH64_BREAKPOINT = 0xD4200000;
 
 struct Exports {
 	uint64_t version; // 0x16A0000000000
-	uint64_t x87_exports;
-	uint64_t x87_export_count;
-	uint64_t runtime_exports;
-	uint64_t runtime_export_count;
+	uint64_t x87Exports;
+	uint64_t x87ExportCount;
+	uint64_t runtimeExports;
+	uint64_t runtimeExportCount;
 };
 
 struct Export {
@@ -508,36 +509,36 @@ int main(int argc, char *argv[]) {
 	printf("Attached successfully\n");
 
 	// Set up offsets dynamically
-	OffsetFinder offset_finder;
+	OffsetFinder offsetFinder;
 	// Set default offsets temporarily (or just in case we need to fall back)
-	offset_finder.set_default_offsets();
+	offsetFinder.setDefaultOffsets();
 	// Search the rosetta runtime binary for offsets.
-	offset_finder.determine_offsets();
+	offsetFinder.determineOffsets();
 
-	auto module_list = dbg.getModuleList();
+	auto moduleList = dbg.getModuleList();
 
-	for (const auto &module : module_list) {
+	for (const auto &module : moduleList) {
 		printf("address %lx, name %s\n", module.address, module.path.c_str());
 	}
 
-	const auto runtime_base = dbg.find_runtime();
+	const auto runtimeBase = dbg.findRuntime();
 
-	printf("Rosetta runtime base: 0x%lx\n", runtime_base);
+	printf("Rosetta runtime base: 0x%lx\n", runtimeBase);
 
-	if (runtime_base == 0) {
+	if (runtimeBase == 0) {
 		printf("Failed to find Rosetta runtime\n");
 		return 1;
 	}
 
-	dbg.setBreakpoint(runtime_base + offset_finder.offset_exports_fetch);
+	dbg.setBreakpoint(runtimeBase + offsetFinder.offsetExportsFetch_);
 	dbg.continueExecution();
-	dbg.removeBreakpoint(runtime_base + offset_finder.offset_exports_fetch);
+	dbg.removeBreakpoint(runtimeBase + offsetFinder.offsetExportsFetch_);
 
-	auto rosetta_runtime_exports_address = dbg.readRegister(MuhDebugger::Register::X19);
-	printf("Rosetta runtime exports: 0x%llx\n", rosetta_runtime_exports_address);
+	auto rosettaRuntimeExportsAddress = dbg.readRegister(MuhDebugger::Register::X19);
+	printf("Rosetta runtime exports: 0x%llx\n", rosettaRuntimeExportsAddress);
 
 	Exports exports;
-	dbg.readMemory(rosetta_runtime_exports_address, &exports, sizeof(exports));
+	dbg.readMemory(rosettaRuntimeExportsAddress, &exports, sizeof(exports));
 
 	printf("Rosetta version: %llx\n", exports.version);
 
@@ -549,53 +550,53 @@ int main(int argc, char *argv[]) {
 	}
 
 	// get the directory of the current executable
-	std::filesystem::path executable_path(path);
-	std::filesystem::path executable_dir = executable_path.parent_path();
+	std::filesystem::path executablePath(path);
+	std::filesystem::path executableDir = executablePath.parent_path();
 
-	MachoLoader macho_loader;
+	MachoLoader machoLoader;
 
-	if (!macho_loader.open(executable_dir / "libRuntimeRosettax87")) {
+	if (!machoLoader.open(executableDir / "libRuntimeRosettax87")) {
 		printf("Failed to open Mach-O file\n");
 		return 1;
 	}
 
 	// we need to call mmap to allocate the memory for our macho
 
-	uint64_t macho_base = 0; // dbg.allocateMemory(macho_loader.image_size());
+	uint64_t machoBase = 0; // dbg.allocateMemory(macho_loader.image_size());
 
 	// first we store the original state of the thread
-	arm_thread_state64_t backup_thread_state;
-	dbg.copyThreadState(backup_thread_state);
+	arm_thread_state64_t backupThreadState;
+	dbg.copyThreadState(backupThreadState);
 
 	// now we prepare the registers for the mmap call
-	arm_thread_state64_t mmap_thread_state;
-	memcpy(&mmap_thread_state, &backup_thread_state, sizeof(arm_thread_state64_t));
+	arm_thread_state64_t mmapThreadState;
+	memcpy(&mmapThreadState, &backupThreadState, sizeof(arm_thread_state64_t));
 
-	mmap_thread_state.__x[0] = 0LL;                                     // addr
-	mmap_thread_state.__x[1] = macho_loader.image_size();               // size
-	mmap_thread_state.__x[2] = VM_PROT_READ | VM_PROT_WRITE;            // prot
-	mmap_thread_state.__x[3] = MAP_ANON | MAP_TRANSLATED_ALLOW_EXECUTE; // flags
-	mmap_thread_state.__x[4] = -1;                                      // fd
-	mmap_thread_state.__x[5] = 0;                                       // offset
-	mmap_thread_state.__pc = runtime_base + offset_finder.offset_svc_call_entry;
+	mmapThreadState.__x[0] = 0LL;                                     // addr
+	mmapThreadState.__x[1] = machoLoader.imageSize();                 // size
+	mmapThreadState.__x[2] = VM_PROT_READ | VM_PROT_WRITE;            // prot
+	mmapThreadState.__x[3] = MAP_ANON | MAP_TRANSLATED_ALLOW_EXECUTE; // flags
+	mmapThreadState.__x[4] = -1;                                      // fd
+	mmapThreadState.__x[5] = 0;                                       // offset
+	mmapThreadState.__pc = runtimeBase + offsetFinder.offsetSvcCallEntry_;
 
-	dbg.restoreThreadState(mmap_thread_state);
+	dbg.restoreThreadState(mmapThreadState);
 
 	// setup a breakpoint after mmap syscall
-	dbg.setBreakpoint(runtime_base + offset_finder.offset_svc_call_ret);
+	dbg.setBreakpoint(runtimeBase + offsetFinder.offsetSvcCallRet_);
 	dbg.continueExecution();
-	dbg.removeBreakpoint(runtime_base + offset_finder.offset_svc_call_ret);
+	dbg.removeBreakpoint(runtimeBase + offsetFinder.offsetSvcCallRet_);
 
-	macho_base = dbg.readRegister(MuhDebugger::Register::X0);
+	machoBase = dbg.readRegister(MuhDebugger::Register::X0);
 
-	printf("Allocated memory at 0x%llx\n", macho_base);
+	printf("Allocated memory at 0x%llx\n", machoBase);
 
-	dbg.restoreThreadState(backup_thread_state);
+	dbg.restoreThreadState(backupThreadState);
 
-	macho_loader.for_each_segment([&](segment_command_64 *segm) {
-		auto dest = macho_base + segm->vmaddr;
+	machoLoader.forEachSegment([&](segment_command_64 *segm) {
+		auto dest = machoBase + segm->vmaddr;
 		auto size = segm->vmsize;
-		auto src = macho_loader.buffer_.data() + segm->fileoff;
+		auto src = machoLoader.buffer_.data() + segm->fileoff;
 
 		printf("Copying segment %s from 0x%llx to 0x%llx (%zx bytes)\n", segm->segname, (unsigned long long)segm->fileoff, (unsigned long long)dest, (unsigned long)size);
 
@@ -605,59 +606,59 @@ int main(int argc, char *argv[]) {
 	});
 
 	// fix up Exports segment of mapped macho
-	uint64_t macho_exports_address = macho_base + macho_loader.get_section("__DATA", "exports")->addr;
-	Exports macho_exports;
+	uint64_t machoExportsAddress = machoBase + machoLoader.getSection("__DATA", "exports")->addr;
+	Exports machoExports;
 
-	dbg.readMemory(macho_exports_address, &macho_exports, sizeof(macho_exports));
-	macho_exports.x87_exports += macho_base;
-	macho_exports.runtime_exports += macho_base;
+	dbg.readMemory(machoExportsAddress, &machoExports, sizeof(machoExports));
+	machoExports.x87Exports += machoBase;
+	machoExports.runtimeExports += machoBase;
 
-	std::vector<Export> x87_exports(macho_exports.x87_export_count);
-	std::vector<Export> runtime_exports(macho_exports.runtime_export_count);
+	std::vector<Export> x87Exports(machoExports.x87ExportCount);
+	std::vector<Export> runtimeExports(machoExports.runtimeExportCount);
 
-	dbg.readMemory(macho_exports.x87_exports, x87_exports.data(), x87_exports.size() * sizeof(Export));
-	dbg.readMemory(macho_exports.runtime_exports, runtime_exports.data(), runtime_exports.size() * sizeof(Export));
+	dbg.readMemory(machoExports.x87Exports, x87Exports.data(), x87Exports.size() * sizeof(Export));
+	dbg.readMemory(machoExports.runtimeExports, runtimeExports.data(), runtimeExports.size() * sizeof(Export));
 
-	for (auto &exp : x87_exports) {
-		exp.address += macho_base;
-		exp.name += macho_base;
+	for (auto &exp : x87Exports) {
+		exp.address += machoBase;
+		exp.name += machoBase;
 	}
 
-	for (auto &exp : runtime_exports) {
-		exp.address += macho_base;
-		exp.name += macho_base;
+	for (auto &exp : runtimeExports) {
+		exp.address += machoBase;
+		exp.name += machoBase;
 	}
 
-	dbg.writeMemory(macho_exports.x87_exports, x87_exports.data(), x87_exports.size() * sizeof(Export));
-	dbg.writeMemory(macho_exports.runtime_exports, runtime_exports.data(), runtime_exports.size() * sizeof(Export));
+	dbg.writeMemory(machoExports.x87Exports, x87Exports.data(), x87Exports.size() * sizeof(Export));
+	dbg.writeMemory(machoExports.runtimeExports, runtimeExports.data(), runtimeExports.size() * sizeof(Export));
 
-	printf("macho_exports_address: 0x%llx\n", macho_exports_address);
-	printf("macho_exports.x87_exports: 0x%llx\n", macho_exports.x87_exports);
-	printf("macho_exports.runtime_exports: 0x%llx\n", macho_exports.runtime_exports);
+	printf("machoExports_address: 0x%llx\n", machoExportsAddress);
+	printf("machoExports.x87Exports: 0x%llx\n", machoExports.x87Exports);
+	printf("machoExports.runtimeExports: 0x%llx\n", machoExports.runtimeExports);
 
-	dbg.writeMemory(macho_exports_address, &macho_exports, sizeof(macho_exports));
+	dbg.writeMemory(machoExportsAddress, &machoExports, sizeof(machoExports));
 
 	// look up imports section of mapped macho
-	auto macho_imports_address = macho_base + macho_loader.get_section("__DATA", "imports")->addr;
-	printf("macho_imports_address: 0x%llx\n", macho_imports_address);
+	auto machoImportsAddress = machoBase + machoLoader.getSection("__DATA", "imports")->addr;
+	printf("machoImportsAddress: 0x%llx\n", machoImportsAddress);
 
 	// read the exports from X19 register and copy them to the imports section of the mapped macho
-	auto lib_rosetta_runtime_exports_address = dbg.readRegister(MuhDebugger::Register::X19);
-	printf("lib_rosetta_runtime_exports_address: 0x%llx\n", lib_rosetta_runtime_exports_address);
+	auto libRosettaRuntimeExportsAddress = dbg.readRegister(MuhDebugger::Register::X19);
+	printf("libRosettaRuntimeExportsAddress: 0x%llx\n", libRosettaRuntimeExportsAddress);
 
-	Exports lib_rosetta_runtime_exports;
-	dbg.readMemory(lib_rosetta_runtime_exports_address, &lib_rosetta_runtime_exports, sizeof(lib_rosetta_runtime_exports));
+	Exports libRosettaRuntimeExports;
+	dbg.readMemory(libRosettaRuntimeExportsAddress, &libRosettaRuntimeExports, sizeof(libRosettaRuntimeExports));
 
-	printf("lib_rosetta_runtime_exports.version = 0x%llx\n", lib_rosetta_runtime_exports.version);
-	printf("lib_rosetta_runtime_exports.x87_exports = 0x%llx\n", lib_rosetta_runtime_exports.x87_exports);
-	printf("lib_rosetta_runtime_exports.x87_export_count = 0x%llx\n", lib_rosetta_runtime_exports.x87_export_count);
-	printf("lib_rosetta_runtime_exports.runtime_exports = 0x%llx\n", lib_rosetta_runtime_exports.runtime_exports);
-	printf("lib_rosetta_runtime_exports.runtime_export_count = 0x%llx\n", lib_rosetta_runtime_exports.runtime_export_count);
+	printf("libRosettaRuntimeExports.version = 0x%llx\n", libRosettaRuntimeExports.version);
+	printf("libRosettaRuntimeExports.x87Exports = 0x%llx\n", libRosettaRuntimeExports.x87Exports);
+	printf("libRosettaRuntimeExports.x87Export_count = 0x%llx\n", libRosettaRuntimeExports.x87ExportCount);
+	printf("libRosettaRuntimeExports.runtimeExports = 0x%llx\n", libRosettaRuntimeExports.runtimeExports);
+	printf("libRosettaRuntimeExports.runtimeExportCount = 0x%llx\n", libRosettaRuntimeExports.runtimeExportCount);
 
-	dbg.writeMemory(macho_imports_address, &lib_rosetta_runtime_exports, sizeof(lib_rosetta_runtime_exports));
+	dbg.writeMemory(machoImportsAddress, &libRosettaRuntimeExports, sizeof(libRosettaRuntimeExports));
 
 	// replace the exports in X19 register with the address of the mapped macho
-	dbg.setRegister(MuhDebugger::Register::X19, macho_exports_address);
+	dbg.setRegister(MuhDebugger::Register::X19, machoExportsAddress);
 
 	dbg.detach();
 

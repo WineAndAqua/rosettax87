@@ -73,60 +73,60 @@ enum X87ControlWord : uint16_t {
 };
 
 #if defined(X87_CONVERT_TO_FP80)
-float inline ConvertX87RegisterToFloat32(X87Float80 x87,  uint16_t *status_flags) {
+float inline ConvertX87RegisterToFloat32(X87Float80 x87,  uint16_t *statusFlags) {
 	uint64_t mantissa = x87.mantissa;
-	uint16_t biased_exp = x87.exponent & 0x7FFF;
+	uint16_t biasedExp = x87.exponent & 0x7FFF;
 	uint32_t sign = (x87.exponent & 0x8000) ? 0x80000000 : 0;
 	uint32_t bits;
 
-	if (biased_exp == 0 && mantissa == 0) {
+	if (biasedExp == 0 && mantissa == 0) {
 		bits = sign;
-	} else if (biased_exp == 0x7FFF) {
+	} else if (biasedExp == 0x7FFF) {
 		// NaN or Infinity
 		if ((mantissa & 0x7FFFFFFFFFFFFFFFULL) != 0) {
-			if (status_flags)
-				*status_flags |= X87StatusWordFlag::kInvalidOperation;
+			if (statusFlags)
+				*statusFlags |= X87StatusWordFlag::kInvalidOperation;
 			bits = sign | 0x7FC00000; // Quiet NaN
 		} else {
 			bits = sign | 0x7F800000; // Infinity
 		}
 	} else {
-		int32_t exp = static_cast<int32_t>(biased_exp) - 16383 + 127;
+		int32_t exp = static_cast<int32_t>(biasedExp) - 16383 + 127;
 		uint64_t frac = mantissa & 0x7FFFFFFFFFFFFFFFULL;
 		uint32_t significant = static_cast<uint32_t>(frac >> 40);
 
-		uint64_t round_bit = (frac >> 39) & 1;
-		uint64_t sticky_bits = frac & 0x7FFFFFFFFF;
+		uint64_t roundBit = (frac >> 39) & 1;
+		uint64_t stickyBits = frac & 0x7FFFFFFFFF;
 
 		// Underflow or subnormal
 		if (exp <= 0) {
-			if (status_flags)
-				*status_flags |= (X87StatusWordFlag::kUnderflow | X87StatusWordFlag::kPrecision);
+			if (statusFlags)
+				*statusFlags |= (X87StatusWordFlag::kUnderflow | X87StatusWordFlag::kPrecision);
 			if (exp < -23) {
 				bits = sign;
 			} else {
 				int shift = 1 - exp;
 				significant = static_cast<uint32_t>((frac | 0x8000000000000000ULL) >> (40 + shift));
-				round_bit = (frac >> (39 + shift)) & 1;
-				sticky_bits = frac & ((1ULL << (39 + shift)) - 1);
+				roundBit = (frac >> (39 + shift)) & 1;
+				stickyBits = frac & ((1ULL << (39 + shift)) - 1);
 				exp = 0;
 			}
 		}
 
 		// Precision exception
-		bool inexact = (round_bit || sticky_bits);
-		if (inexact && status_flags)
-			*status_flags |= X87StatusWordFlag::kPrecision;
+		bool inexact = (roundBit || stickyBits);
+		if (inexact && statusFlags)
+			*statusFlags |= X87StatusWordFlag::kPrecision;
 
 		// Round to nearest even and detect overflow
-		if (round_bit && (sticky_bits || (significant & 1))) {
+		if (roundBit && (stickyBits || (significant & 1))) {
 			significant++;
 			if (significant == 0x800000) {
 				significant = 0;
 				exp++;
 				if (exp >= 255) {
-					if (status_flags)
-						*status_flags |= X87StatusWordFlag::kOverflow;
+					if (statusFlags)
+						*statusFlags |= X87StatusWordFlag::kOverflow;
 					bits = sign | 0x7F800000;
 					goto return_float32;
 				}
@@ -135,12 +135,11 @@ float inline ConvertX87RegisterToFloat32(X87Float80 x87,  uint16_t *status_flags
 
 		// Overflow after rounding
 		if (exp >= 255) {
-			if (status_flags)
-				*status_flags |= X87StatusWordFlag::kOverflow;
+			if (statusFlags)
+				*statusFlags |= X87StatusWordFlag::kOverflow;
 			bits = sign | 0x7F800000;
 		} else {
-			bits =
-				sign | (static_cast<uint32_t>(exp) << 23) | (significant & 0x7FFFFF);
+			bits = sign | (static_cast<uint32_t>(exp) << 23) | (significant & 0x7FFFFF);
 		}
 	}
 
@@ -153,7 +152,7 @@ return_float32:
 	return result.f;
 }
 
-inline X87Float80 ConvertFloat64ToX87Register(double value, uint16_t *status_flags) {
+inline X87Float80 ConvertFloat64ToX87Register(double value, uint16_t *statusFlags) {
 	X87Float80 result;
 	union {
 		double v;
@@ -177,16 +176,16 @@ inline X87Float80 ConvertFloat64ToX87Register(double value, uint16_t *status_fla
 			result.mantissa = 0x8000000000000000ULL;
 		} else {
 			result.mantissa = 0xC000000000000000ULL | (mantissa << 11);
-			if (status_flags)
-				*status_flags |= X87StatusWordFlag::kInvalidOperation;
+			if (statusFlags)
+				*statusFlags |= X87StatusWordFlag::kInvalidOperation;
 		}
 		return result;
 	}
 
 	// Denormalized double
 	if (exp == 0) {
-		if (status_flags)
-			*status_flags |= X87StatusWordFlag::kDenormalizedOperand;
+		if (statusFlags)
+			*statusFlags |= X87StatusWordFlag::kDenormalizedOperand;
 		int shift = __builtin_clzll(mantissa) - 11;
 		mantissa <<= (shift + 1);
 		exp = 1 - shift;
@@ -201,9 +200,9 @@ inline X87Float80 ConvertFloat64ToX87Register(double value, uint16_t *status_fla
 
 #endif
 
-double inline ConvertX87RegisterToFloat64(X87Float80 x87, uint16_t *status_flags) {
+double inline ConvertX87RegisterToFloat64(X87Float80 x87, uint16_t *statusFlags) {
 	uint64_t mantissa = x87.mantissa;
-	uint16_t biased_exp = x87.exponent & 0x7FFF;
+	uint16_t biasedExp = x87.exponent & 0x7FFF;
 	uint64_t sign = (x87.exponent & 0x8000) ? 0x8000000000000000ULL : 0;
 	union {
 		uint64_t bits;
@@ -216,10 +215,10 @@ double inline ConvertX87RegisterToFloat64(X87Float80 x87, uint16_t *status_flags
 	}
 
 	// NaN or Infinity
-	if (biased_exp == 0x7FFF) {
+	if (biasedExp == 0x7FFF) {
 		if (mantissa != 0x8000000000000000ULL) {
-			if (status_flags)
-				*status_flags |= X87StatusWordFlag::kInvalidOperation;
+			if (statusFlags)
+				*statusFlags |= X87StatusWordFlag::kInvalidOperation;
 			result.bits = sign | 0x7FF8000000000000ULL;
 			return result.value;
 		}
@@ -227,12 +226,12 @@ double inline ConvertX87RegisterToFloat64(X87Float80 x87, uint16_t *status_flags
 		return result.value;
 	}
 
-	int32_t exp = static_cast<int32_t>(biased_exp) - 16383 + 1023;
+	int32_t exp = static_cast<int32_t>(biasedExp) - 16383 + 1023;
 
 	// Denormalized / Underflow
 	if (exp <= 0) {
-		if (status_flags)
-			*status_flags |= X87StatusWordFlag::kUnderflow;
+		if (statusFlags)
+			*statusFlags |= X87StatusWordFlag::kUnderflow;
 		if (exp < -52) {
 			return (sign ? -0.0 : 0.0);
 		}
@@ -243,31 +242,31 @@ double inline ConvertX87RegisterToFloat64(X87Float80 x87, uint16_t *status_flags
 
 	// Overflow
 	if (exp >= 2047) {
-		if (status_flags)
-			*status_flags |= X87StatusWordFlag::kOverflow;
+		if (statusFlags)
+			*statusFlags |= X87StatusWordFlag::kOverflow;
 		result.bits = sign | 0x7FF0000000000000ULL;
 		return result.value;
 	}
 
 	// Round to 52 bits
 	uint64_t significant = (mantissa >> 11) & 0xFFFFFFFFFFFFFULL;
-	uint64_t round_bit = (mantissa >> 10) & 1;
-	uint64_t sticky_bits = (mantissa & ((1ULL << 10) - 1)) != 0;
+	uint64_t roundBit = (mantissa >> 10) & 1;
+	uint64_t stickyBits = (mantissa & ((1ULL << 10) - 1)) != 0;
 
 	// Precision exception
-	if ((round_bit || sticky_bits) && status_flags) {
-		*status_flags |= X87StatusWordFlag::kPrecision;
+	if ((roundBit || stickyBits) && statusFlags) {
+		*statusFlags |= X87StatusWordFlag::kPrecision;
 	}
 
 	// Round to nearest even
-	if (round_bit && (sticky_bits || (significant & 1))) {
+	if (roundBit && (stickyBits || (significant & 1))) {
 		significant++;
 		if (significant == 0x10000000000000ULL) {
 			significant = 0;
 			exp++;
 			if (exp >= 2047) {
-				if (status_flags)
-					*status_flags |= X87StatusWordFlag::kOverflow;
+				if (statusFlags)
+					*statusFlags |= X87StatusWordFlag::kOverflow;
 				result.bits = sign | 0x7FF0000000000000ULL;
 				return result.value;
 			}
@@ -280,9 +279,9 @@ double inline ConvertX87RegisterToFloat64(X87Float80 x87, uint16_t *status_flags
 
 #pragma pack(push, 1)
 struct X87State {
-	uint16_t control_word;
-	uint16_t status_word;
-	int16_t tag_word;
+	uint16_t controlWord;
+	uint16_t statusWord;
+	int16_t tagWord;
 
 #if defined(X87_CONVERT_TO_FP80)
 	X87Float80 st[8];
@@ -291,7 +290,7 @@ struct X87State {
 	X87StackRegister st[8];
 #endif
 
-	X87State() : control_word(0x037F), status_word(0x0000), tag_word(0xFFFF) { // All registers marked empty (11)
+	X87State() : controlWord(0x037F), statusWord(0x0000), tagWord(0xFFFF) { // All registers marked empty (11)
 		// Initialize all registers to zero
 		for (int i = 0; i < 8; i++) {
 			st[i].ieee754 = 0.0;
@@ -299,101 +298,100 @@ struct X87State {
 	}
 
 	// Get index of top register
-	auto top_index() const -> unsigned int {
-		return (status_word >> 11) & 7;
+	auto topIndex() const -> unsigned int {
+		return (statusWord >> 11) & 7;
 	} // Get reference to top register
 
 	// Get index of ST(i) register
-	auto get_st_index(unsigned int st_offset) const -> unsigned int {
-		return (st_offset + top_index()) & 7;
+	auto getStIndex(unsigned int stOffset) const -> unsigned int {
+		return (stOffset + topIndex()) & 7;
 	}
 
 	// Get value from register at ST(i). Checks tag bits for validity, returns 0.0
 	// if empty. Updates status word.
-	__attribute__((always_inline)) auto get_st(unsigned int st_offset) -> double {
-		const unsigned int reg_idx = get_st_index(st_offset);
-		const auto tag = static_cast<X87TagState>((tag_word >> (reg_idx * 2)) & 3);
+	__attribute__((always_inline)) auto getSt(unsigned int stOffset) -> double {
+		const unsigned int regIdx = getStIndex(stOffset);
+		const auto tag = static_cast<X87TagState>((tagWord >> (regIdx * 2)) & 3);
 		if (tag == X87TagState::kEmpty) {
 			// FP_X_STK | FP_X_INV
-			status_word |= X87StatusWordFlag::kStackFault | X87StatusWordFlag::kInvalidOperation;
+			statusWord |= X87StatusWordFlag::kStackFault | X87StatusWordFlag::kInvalidOperation;
 			return std::numeric_limits<double>::quiet_NaN();
 		}
 #if !defined(X87_CONVERT_TO_FP80)
-		return st[reg_idx].ieee754;
+		return st[regIdx].ieee754;
 #else
-		return ConvertX87RegisterToFloat64(st[reg_idx], &status_word);
+		return ConvertX87RegisterToFloat64(st[regIdx], &statusWord);
 #endif
 	}
 
-	auto get_st_const(unsigned int st_offset) const -> std::pair<double, uint16_t> {
-		const unsigned int reg_idx = get_st_index(st_offset);
-		const X87TagState tag = static_cast<X87TagState>((tag_word >> (reg_idx * 2)) & 3);
+	auto getStConst(unsigned int stOffset) const -> std::pair<double, uint16_t> {
+		const unsigned int regIdx = getStIndex(stOffset);
+		const X87TagState tag = static_cast<X87TagState>((tagWord >> (regIdx * 2)) & 3);
 
-		uint16_t new_status_word = status_word & ~(X87StatusWordFlag::kConditionCode1);
+		uint16_t newStatusWord = statusWord & ~(X87StatusWordFlag::kConditionCode1);
 		if (tag == X87TagState::kEmpty) {
 			// FP_X_STK | FP_X_INV
 			//  return nan
-			return {std::numeric_limits<double>::quiet_NaN(), new_status_word | X87StatusWordFlag::kStackFault | X87StatusWordFlag::kInvalidOperation};
+			return {std::numeric_limits<double>::quiet_NaN(), newStatusWord | X87StatusWordFlag::kStackFault | X87StatusWordFlag::kInvalidOperation};
 		}
 
 #if !defined(X87_CONVERT_TO_FP80)
-		return {st[reg_idx].ieee754, new_status_word};
+		return {st[regIdx].ieee754, newStatusWord};
 #else
-		auto value = ConvertX87RegisterToFloat64(st[reg_idx], &new_status_word);
-		return {value, new_status_word};
+		auto value = ConvertX87RegisterToFloat64(st[regIdx], &newStatusWord);
+		return {value, newStatusWord};
 #endif
 	}
 
-	auto get_st_const32(unsigned int st_offset) const -> std::pair<float, uint16_t> {
-		const unsigned int reg_idx = get_st_index(st_offset);
-		const X87TagState tag = static_cast<X87TagState>((tag_word >> (reg_idx * 2)) & 3);
+	auto getStConst32(unsigned int stOffset) const -> std::pair<float, uint16_t> {
+		const unsigned int regIdx = getStIndex(stOffset);
+		const X87TagState tag = static_cast<X87TagState>((tagWord >> (regIdx * 2)) & 3);
 
-		uint16_t new_status_word =
-			status_word & ~(X87StatusWordFlag::kConditionCode1);
+		uint16_t newStatusWord = statusWord & ~(X87StatusWordFlag::kConditionCode1);
 		if (tag == X87TagState::kEmpty) {
 			// FP_X_STK | FP_X_INV
 			//  return nan
-			return {std::numeric_limits<float>::quiet_NaN(), new_status_word | X87StatusWordFlag::kStackFault | X87StatusWordFlag::kInvalidOperation};
+			return {std::numeric_limits<float>::quiet_NaN(), newStatusWord | X87StatusWordFlag::kStackFault | X87StatusWordFlag::kInvalidOperation};
 		}
 
 #if !defined(X87_CONVERT_TO_FP80)
-		return {st[reg_idx].ieee754, new_status_word};
+		return {st[regIdx].ieee754, newStatusWord};
 #else
-		auto value = ConvertX87RegisterToFloat32(st[reg_idx], &new_status_word);
-		return {value, new_status_word};
+		auto value = ConvertX87RegisterToFloat32(st[regIdx], &newStatusWord);
+		return {value, newStatusWord};
 #endif
 	}
 
-	__attribute__((always_inline)) auto get_st_tag(unsigned int st_offset) const -> X87TagState {
-		const unsigned int reg_idx = get_st_index(st_offset);
-		return static_cast<X87TagState>((tag_word >> (reg_idx * 2)) & 3);
+	__attribute__((always_inline)) auto getStTag(unsigned int stOffset) const -> X87TagState {
+		const unsigned int regIdx = getStIndex(stOffset);
+		return static_cast<X87TagState>((tagWord >> (regIdx * 2)) & 3);
 	}
 
 	// Push value to FPU stack
 	auto push() -> void {
-		const int current_top = top_index();
-		const int new_top = (current_top - 1) & 7;
-		status_word = (status_word & ~X87StatusWordFlag::kTopOfStack) | (new_top << 11);
+		const int currentTop = topIndex();
+		const int newTop = (currentTop - 1) & 7;
+		statusWord = (statusWord & ~X87StatusWordFlag::kTopOfStack) | (newTop << 11);
 		// Clear tag bits (set to valid 00) for new register
-		tag_word &= ~(3 << (new_top * 2));
+		tagWord &= ~(3 << (newTop * 2));
 	}
 
 	auto pop() -> void {
-		const int current_top = top_index();
+		const int currentTop = topIndex();
 		// Set tag bits to empty (11) for popped register
-		tag_word |= (3 << (current_top * 2));
-		st[current_top].ieee754 = 0.0;
-		status_word = (status_word & ~X87StatusWordFlag::kTopOfStack) | (((current_top + 1) & 7) << 11);
+		tagWord |= (3 << (currentTop * 2));
+		st[currentTop].ieee754 = 0.0;
+		statusWord = (statusWord & ~X87StatusWordFlag::kTopOfStack) | (((currentTop + 1) & 7) << 11);
 	}
 
-	__attribute__((always_inline)) auto set_st(unsigned int st_offset, double value) -> void {
-		auto st_idx = get_st_index(st_offset);
+	__attribute__((always_inline)) auto setSt(unsigned int stOffset, double value) -> void {
+		auto stIdx = getStIndex(stOffset);
 
 #if !defined(X87_CONVERT_TO_FP80)
-		st[st_idx].ieee754 = value;
+		st[stIdx].ieee754 = value;
 #else
 		// Convert value to x87 format
-		st[st_idx] = ConvertFloat64ToX87Register(value, &status_word);
+		st[stIdx] = ConvertFloat64ToX87Register(value, &statusWord);
 #endif
 		X87TagState tag;
 		if (value == 0.0) {
@@ -405,65 +403,65 @@ struct X87State {
 		}
 
 		// Clear existing tag bits and set new state
-		tag_word &= ~(3 << (st_idx * 2));
-		tag_word |= (static_cast<int>(tag) << (st_idx * 2));
+		tagWord &= ~(3 << (stIdx * 2));
+		tagWord |= (static_cast<int>(tag) << (stIdx * 2));
 	}
 
-	__attribute__((always_inline)) auto set_st_fast(unsigned int st_offset, double value) -> void {
-		const unsigned int idx = get_st_index(st_offset);
+	__attribute__((always_inline)) auto setStFast(unsigned int stOffset, double value) -> void {
+		const unsigned int idx = getStIndex(stOffset);
 
 #if !defined(X87_CONVERT_TO_FP80)
 		// Direct IEEE-754 store
 		st[idx].ieee754 = value;
 #else
-		// Convert to FP80 format without modifying status_word
+		// Convert to FP80 format without modifying statusWord
 		st[idx] = ConvertFloat64ToX87Register(value, nullptr);
 #endif
 
 		// Clear both tag bits → 00 (kValid)
-		tag_word &= ~(0x3u << (idx * 2));
+		tagWord &= ~(0x3u << (idx * 2));
 	}
 
 	// Fast path: bypass tag-checks, assume value valid
-	__attribute__((always_inline)) auto get_st_fast(unsigned int st_offset) const -> double {
+	__attribute__((always_inline)) auto getStFast(unsigned int stOffset) const -> double {
 		// Compute absolute slot index
-		const unsigned int idx = get_st_index(st_offset);
+		const unsigned int idx = getStIndex(stOffset);
 #if !defined(X87_CONVERT_TO_FP80)
 		// Direct IEEE-754 load
 		return st[idx].ieee754;
 #else
-		// If you still need FP80 support, convert without touching status_word
+		// If you still need FP80 support, convert without touching statusWord
 		return ConvertX87RegisterToFloat64(st[idx], nullptr);
 #endif
 	}
 
-	auto swap_registers(unsigned int reg_offset1, unsigned int reg_offset2) -> void {
+	auto swap_registers(unsigned int regOffset1, unsigned int regOffset2) -> void {
 		// Swap register contents
-		auto reg_idx1 = get_st_index(reg_offset1);
-		auto reg_idx2 = get_st_index(reg_offset2);
+		auto regIdx1 = getStIndex(regOffset1);
+		auto regIdx2 = getStIndex(regOffset2);
 
-		auto temp = st[reg_idx1].ieee754;
-		st[reg_idx1].ieee754 = st[reg_idx2].ieee754;
-		st[reg_idx2].ieee754 = temp;
+		auto temp = st[regIdx1].ieee754;
+		st[regIdx1].ieee754 = st[regIdx2].ieee754;
+		st[regIdx2].ieee754 = temp;
 
 		// Get current tags
-		const int tag1 = (tag_word >> (reg_idx1 * 2)) & 3;
-		const int tag2 = (tag_word >> (reg_idx2 * 2)) & 3;
+		const int tag1 = (tagWord >> (regIdx1 * 2)) & 3;
+		const int tag2 = (tagWord >> (regIdx2 * 2)) & 3;
 
 		// Clear both tags
-		tag_word &= ~((3 << (reg_idx1 * 2)) | (3 << (reg_idx2 * 2)));
+		tagWord &= ~((3 << (regIdx1 * 2)) | (3 << (regIdx2 * 2)));
 
 		// Set swapped tags
-		tag_word |= (tag2 << (reg_idx1 * 2)) | (tag1 << (reg_idx2 * 2));
+		tagWord |= (tag2 << (regIdx1 * 2)) | (tag1 << (regIdx2 * 2));
 	}
 
 	auto print() const -> void {
-		simple_printf("FPU state:\n");
-		simple_printf("Control word: %d\n", control_word);
-		simple_printf("Status word: %d\n", status_word);
-		simple_printf("Tag word: %d\n", tag_word);
-		simple_printf("Top index: %d\n", top_index());
-		simple_printf("\n");
+		simplePrintf("FPU state:\n");
+		simplePrintf("Control word: %d\n", controlWord);
+		simplePrintf("Status word: %d\n", statusWord);
+		simplePrintf("Tag word: %d\n", tagWord);
+		simplePrintf("Top index: %d\n", topIndex());
+		simplePrintf("\n");
 	}
 };
 #pragma pack(pop)
@@ -472,9 +470,9 @@ static_assert(sizeof(X87State) == 0x56, "Invalid size for X87State");
 #else
 static_assert(sizeof(X87State) == 0x48, "Invalid size for X87State");
 #endif
-static_assert(offsetof(X87State, control_word) == 0, "Invalid offset for X87State::control_word");
-static_assert(offsetof(X87State, status_word) == 2, "Invalid offset for X87State::status_word");
-static_assert(offsetof(X87State, tag_word) == 4, "Invalid offset for X87State::tag_word");
+static_assert(offsetof(X87State, controlWord) == 0, "Invalid offset for X87State::controlWord");
+static_assert(offsetof(X87State, statusWord) == 2, "Invalid offset for X87State::statusWord");
+static_assert(offsetof(X87State, tagWord) == 4, "Invalid offset for X87State::tagWord");
 
 #if defined(X87_CONVERT_TO_FP80)
 static_assert(offsetof(X87State, st) == 6, "Invalid offset for X87State::st0");

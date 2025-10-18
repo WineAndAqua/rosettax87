@@ -12,11 +12,11 @@ struct Export {
 };
 
 struct Exports {
-	const Export *x87_exports;
-	uint64_t x87_export_count;
-	const Export *runtime_exports;
-	uint64_t runtime_export_count;
 	uint64_t version; // 0x16A0000000000
+	const Export *x87Exports;
+	uint64_t x87ExportCount;
+	const Export *runtimeExports;
+	uint64_t runtimeExportCount;
 };
 
 static_assert(sizeof(Exports) == 0x28, "Invalid size for Exports");
@@ -136,4 +136,4 @@ extern runtime_wide_sdiv_64_t orig_runtime_wide_sdiv_64;
 
 extern Exports kImports;
 
-extern auto exports_init() -> void;
+extern auto exportsInit() -> void;

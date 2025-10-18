@@ -249,17 +249,17 @@ __attribute__((section("__DATA,imports"), used)) Exports kImports = {
 	0x0,
 };
 
-auto exports_init() -> void {
+auto exportsInit() -> void {
 	// copy the exports from libRosettaRuntime to orig_* function pointers
 	void **p = (void **)&orig_init_library;
-	for (auto i = 0; i < kImports.x87_export_count; i++) {
-		*p = kImports.x87_exports[i].address;
+	for (auto i = 0; i < kImports.x87ExportCount; i++) {
+		*p = kImports.x87Exports[i].address;
 		p++;
 	}
 
 	p = (void **)&orig_runtime_cpuid;
-	for (auto i = 0; i < kImports.runtime_export_count; i++) {
-		*p = kImports.runtime_exports[i].address;
+	for (auto i = 0; i < kImports.runtimeExportCount; i++) {
+		*p = kImports.runtimeExports[i].address;
 		p++;
 	}
 }
