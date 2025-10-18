@@ -1679,7 +1679,7 @@ X87Float80StatusWordResult x87_fst_fp80(X87State const *a1) {
 	return result;
 }
 #else
-X87_TRAMPOLINE_ARGS(X87Float80, x87_fst_fp80, (X87State const *a1), x9);
+X87_TRAMPOLINE_ARGS(X87Float80StatusWordResult, x87_fst_fp80, (X87State const *a1), x9);
 #endif
 
 #if defined(X87_FSUB_ST)
@@ -1868,7 +1868,7 @@ uint32_t x87_fucomi(X87State *state, unsigned int st_offset, bool pop_stack) {
 	return flags;
 }
 #else
-X87_TRAMPOLINE_ARGS(uint32_t, x87_fucomi, *X87State * state, unsigned int st_offset, bool pop_stack), x9);
+X87_TRAMPOLINE_ARGS(uint32_t, x87_fucomi, (X87State * state, unsigned int st_offset, bool pop_stack), x9);
 #endif
 
 #if defined(X87_FXAM)
