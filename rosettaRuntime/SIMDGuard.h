@@ -6,6 +6,7 @@
 // was made by staring at disassembled code.
 
 #include <cstdint>
+
 #define ENABLE_SIMD_GUARD
 
 struct SIMDGuard {

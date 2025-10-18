@@ -1,10 +1,12 @@
 #include "X87.h"
-
 #include "Export.h"
 #include "Log.h"
 #include "SIMDGuard.h"
 #include "X87State.h"
+
 #include "openlibm_math.h"
+
+#include <cstring>
 
 #define X87_F2XM1
 #define X87_FABS

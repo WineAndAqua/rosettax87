@@ -1,11 +1,6 @@
 #pragma once
 
-#include <algorithm>
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <vector>
 
 struct OffsetFinder {
 	auto setDefaultOffsets() -> void;

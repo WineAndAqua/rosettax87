@@ -1,7 +1,6 @@
 #pragma once
 
 #include <filesystem>
-#include <functional>
 #include <mach-o/loader.h>
 #include <vector>
 

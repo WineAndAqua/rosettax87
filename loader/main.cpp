@@ -1,24 +1,10 @@
-#include <fcntl.h>
-#include <libproc.h>
-#include <mach-o/dyld.h> // For _NSGetExecutablePath
-#include <mach-o/dyld_images.h>
-#include <mach/arm/thread_status.h>
-#include <mach/error.h>
-#include <mach/mach.h>
-#include <mach/mach_vm.h>
-#include <stdint.h> // Add for uint64_t
 #include <stdint.h>
-#include <stdio.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
-#include <sys/socket.h>
-#include <sys/stat.h> // For chmod
-#include <sys/types.h>
-#include <sys/un.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <mach-o/dyld.h>
+#include <mach-o/dyld_images.h>
+#include <mach/mach_vm.h>
 
-#include <csignal>
 #include <map>
 
 #include "macho_loader.hpp"
