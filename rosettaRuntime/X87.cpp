@@ -94,7 +94,7 @@
 		             "br " #REGISTER);                                 \
 	}
 
-void *init_library(SymbolList const *a1, unsigned long long a2, ThreadContextOffsets const *a3) {
+void *init_library(SymbolList const *a1, uint64_t a2, ThreadContextOffsets const *a3) {
 	SIMDGuardFull simdGuard;
 	exportsInit();
 
@@ -129,7 +129,7 @@ void x87_init(X87State *a1) {
 	*a1 = X87State();
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_init, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_init, (X87State *a1), x9);
 #endif
 
 X87_TRAMPOLINE(x87_state_from_x86_float_state, x9);
@@ -158,7 +158,7 @@ void x87_f2xm1(X87State *state) {
 	state->setStFast(0, result);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_f2xm1, (X87State * state), x9);
+X87_TRAMPOLINE_ARGS(void, x87_f2xm1, (X87State *state), x9);
 #endif
 
 // Clears the sign bit of ST(0) to create the absolute value of the operand. The
@@ -180,11 +180,11 @@ void x87_fabs(X87State *a1) {
 	a1->setStFast(0, std::abs(value));
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fabs, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fabs, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FADD_ST)
-void x87_fadd_ST(X87State *a1, unsigned int st_offset_1, unsigned int st_offset_2, bool pop_stack) {
+void x87_fadd_ST(X87State *a1, uint32_t st_offset_1, uint32_t st_offset_2, bool pop_stack) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fadd_ST\n", 13);
@@ -203,11 +203,11 @@ void x87_fadd_ST(X87State *a1, unsigned int st_offset_1, unsigned int st_offset_
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fadd_ST, (X87State * a1, unsigned int st_offset_1, unsigned int st_offset_2, bool pop_stack), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fadd_ST, (X87State *a1, uint32_t st_offset_1, uint32_t st_offset_2, bool pop_stack), x9);
 #endif
 
 #if defined(X87_FADD_F32)
-void x87_fadd_f32(X87State *a1, unsigned int fp32) {
+void x87_fadd_f32(X87State *a1, uint32_t fp32) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fadd_f32\n", 14);
@@ -220,11 +220,11 @@ void x87_fadd_f32(X87State *a1, unsigned int fp32) {
 	a1->setStFast(0, st0 + value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fadd_f32, (X87State * a1, unsigned int fp32), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fadd_f32, (X87State *a1, uint32_t fp32), x9);
 #endif
 
 #if defined(X87_FADD_F64)
-void x87_fadd_f64(X87State *a1, unsigned long long a2) {
+void x87_fadd_f64(X87State *a1, uint64_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fadd_f64\n", 14);
@@ -237,7 +237,7 @@ void x87_fadd_f64(X87State *a1, unsigned long long a2) {
 	a1->setStFast(0, st0 + value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fadd_f64, (X87State * a1, unsigned long long a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fadd_f64, (X87State *a1, uint64_t a2), x9);
 #endif
 
 double BCD2Double(uint8_t bcd[10]) {
@@ -266,7 +266,7 @@ double BCD2Double(uint8_t bcd[10]) {
 }
 
 #if defined(X87_FBLD)
-void x87_fbld(X87State *a1, unsigned long long a2, unsigned long long a3) {
+void x87_fbld(X87State *a1, uint64_t a2, uint64_t a3) {
 	SIMDGuard simdGuard;
 	LOG(1, "x87_fbld\n", 10);
 
@@ -284,7 +284,7 @@ void x87_fbld(X87State *a1, unsigned long long a2, unsigned long long a3) {
 	a1->setSt(0, value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fbld, (X87State * a1, unsigned long long a2, unsigned long long a3), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fbld, (X87State *a1, uint64_t a2, uint64_t a3), x9);
 #endif
 
 #if defined(X87_FBSTP)
@@ -350,7 +350,7 @@ uint128_t x87_fbstp(X87State *a1) {
 	};
 }
 #else
-X87_TRAMPOLINE_ARGS(uint128_t, x87_fbstp, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(uint128_t, x87_fbstp, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FCHS)
@@ -365,11 +365,11 @@ void x87_fchs(X87State *a1) {
 	a1->setStFast(0, -a1->getStFast(0));
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fchs, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fchs, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FCMOV)
-void x87_fcmov(X87State *state, unsigned int condition, unsigned int st_offset) {
+void x87_fcmov(X87State *state, uint32_t condition, uint32_t st_offset) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fcmov\n", 11);
@@ -394,11 +394,11 @@ void x87_fcmov(X87State *state, unsigned int condition, unsigned int st_offset) 
 	state->setSt(0, value); // Perform the actual register move
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fcmov, (X87State * state, unsigned int condition, unsigned int st_offset), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fcmov, (X87State *state, uint32_t condition, uint32_t st_offset), x9);
 #endif
 
 #if defined(X87_FCOM_ST)
-void x87_fcom_ST(X87State *a1, unsigned int st_offset, unsigned int number_of_pops) {
+void x87_fcom_ST(X87State *a1, uint32_t st_offset, uint32_t number_of_pops) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fcom_ST\n", 13);
@@ -431,11 +431,11 @@ void x87_fcom_ST(X87State *a1, unsigned int st_offset, unsigned int number_of_po
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fcom_ST, (X87State * a1, unsigned int st_offset, unsigned int number_of_pops), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fcom_ST, (X87State *a1, uint32_t st_offset, uint32_t number_of_pops), x9);
 #endif
 
 #if defined(X87_FCOM_F32)
-void x87_fcom_f32(X87State *a1, unsigned int fp32, bool pop) {
+void x87_fcom_f32(X87State *a1, uint32_t fp32, bool pop) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fcom_f32\n", 14);
@@ -463,11 +463,11 @@ void x87_fcom_f32(X87State *a1, unsigned int fp32, bool pop) {
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fcom_f32, (X87State * a1, unsigned int fp32, bool pop), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fcom_f32, (X87State *a1, uint32_t fp32, bool pop), x9);
 #endif
 
 #if defined(X87_FCOM_F64)
-void x87_fcom_f64(X87State *a1, unsigned long long fp64, bool pop) {
+void x87_fcom_f64(X87State *a1, uint64_t fp64, bool pop) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fcom_f64\n", 14);
@@ -495,11 +495,11 @@ void x87_fcom_f64(X87State *a1, unsigned long long fp64, bool pop) {
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fcom_f64, (X87State * a1, unsigned long long fp64, bool pop), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fcom_f64, (X87State *a1, uint64_t fp64, bool pop), x9);
 #endif
 
 #if defined(X87_FCOMI)
-uint32_t x87_fcomi(X87State *state, unsigned int st_offset, bool pop) {
+uint32_t x87_fcomi(X87State *state, uint32_t st_offset, bool pop) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fcomi\n", 11);
@@ -535,7 +535,7 @@ uint32_t x87_fcomi(X87State *state, unsigned int st_offset, bool pop) {
 	return flags;
 }
 #else
-X87_TRAMPOLINE_ARGS(uint32_t, x87_fcomi, (X87State * state, unsigned int st_offset, bool pop), x9);
+X87_TRAMPOLINE_ARGS(uint32_t, x87_fcomi, (X87State *state, uint32_t st_offset, bool pop), x9);
 #endif
 
 #if defined(X87_FCOS)
@@ -554,7 +554,7 @@ void x87_fcos(X87State *a1) {
 	a1->setStFast(0, result);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fcos, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fcos, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FDECSTP)
@@ -572,11 +572,11 @@ void x87_fdecstp(X87State *a1) {
 	a1->statusWord = (a1->statusWord & ~X87StatusWordFlag::kTopOfStack) | (new_top << 11);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fdecstp, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fdecstp, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FDIV_ST)
-void x87_fdiv_ST(X87State *a1, unsigned int st_offset_1, unsigned int st_offset_2, bool pop_stack) {
+void x87_fdiv_ST(X87State *a1, uint32_t st_offset_1, uint32_t st_offset_2, bool pop_stack) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fdiv_ST\n", 13);
@@ -595,11 +595,11 @@ void x87_fdiv_ST(X87State *a1, unsigned int st_offset_1, unsigned int st_offset_
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fdiv_ST, (X87State * a1, unsigned int st_offset_1,  unsigned int st_offset_2, bool pop_stack), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fdiv_ST, (X87State *a1, uint32_t st_offset_1, uint32_t st_offset_2, bool pop_stack), x9);
 #endif
 
 #if defined(X87_FDIV_F32)
-void x87_fdiv_f32(X87State *a1, unsigned int a2) {
+void x87_fdiv_f32(X87State *a1, uint32_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fdiv_f32\n", 14);
@@ -611,11 +611,11 @@ void x87_fdiv_f32(X87State *a1, unsigned int a2) {
 	a1->setStFast(0, st0 / value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fdiv_f32, (X87State * a1, unsigned int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fdiv_f32, (X87State *a1, uint32_t a2), x9);
 #endif
 
 #if defined(X87_FDIV_F64)
-void x87_fdiv_f64(X87State *a1, unsigned long long a2) {
+void x87_fdiv_f64(X87State *a1, uint64_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fdiv_f64\n", 14);
@@ -628,11 +628,11 @@ void x87_fdiv_f64(X87State *a1, unsigned long long a2) {
 	a1->setStFast(0, st0 / value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fdiv_f64, (X87State * a1, unsigned long long a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fdiv_f64, (X87State *a1, uint64_t a2), x9);
 #endif
 
 #if defined(X87_FDIVR_ST)
-void x87_fdivr_ST(X87State *a1, unsigned int st_offset_1, unsigned int st_offset_2, bool pop_stack) {
+void x87_fdivr_ST(X87State *a1, uint32_t st_offset_1, uint32_t st_offset_2, bool pop_stack) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fdivr_ST\n", 14);
@@ -651,11 +651,11 @@ void x87_fdivr_ST(X87State *a1, unsigned int st_offset_1, unsigned int st_offset
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fdivr_ST, (X87State * a1, unsigned int st_offset_1, unsigned int st_offset_2, bool pop_stack), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fdivr_ST, (X87State *a1, uint32_t st_offset_1, uint32_t st_offset_2, bool pop_stack), x9);
 #endif
 
 #if defined(X87_FDIVR_F32)
-void x87_fdivr_f32(X87State *a1, unsigned int a2) {
+void x87_fdivr_f32(X87State *a1, uint32_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fdivr_f32\n", 15);
@@ -667,11 +667,11 @@ void x87_fdivr_f32(X87State *a1, unsigned int a2) {
 	a1->setStFast(0, value / st0);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fdivr_f32, (X87State * a1, unsigned int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fdivr_f32, (X87State *a1, uint32_t a2), x9);
 #endif
 
 #if defined(X87_FDIVR_F64)
-void x87_fdivr_f64(X87State *a1, unsigned long long a2) {
+void x87_fdivr_f64(X87State *a1, uint64_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fdivr_f64\n", 15);
@@ -683,16 +683,16 @@ void x87_fdivr_f64(X87State *a1, unsigned long long a2) {
 	a1->setStFast(0, value / st0);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fdivr_f64, (X87State * a1, unsigned long long a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fdivr_f64, (X87State *a1, uint64_t a2), x9);
 #endif
 
-void x87_ffree(X87State *a1, unsigned int a2) {
+void x87_ffree(X87State *a1, uint32_t a2) {
 	LOG(1, "x87_ffree\n", 11);
 	orig_x87_ffree(a1, a2);
 }
 
 #if defined(X87_FIADD)
-void x87_fiadd(X87State *a1, int m32int) {
+void x87_fiadd(X87State *a1, int32_t m32int) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fiadd\n", 11);
@@ -711,11 +711,11 @@ void x87_fiadd(X87State *a1, int m32int) {
 	a1->setSt(0, st0);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fiadd, (X87State * a1, int m32int), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fiadd, (X87State *a1, int m32int), x9);
 #endif
 
 #if defined(X87_FICOM)
-void x87_ficom(X87State *a1, int src, bool pop) {
+void x87_ficom(X87State *a1, int32_t src, bool pop) {
 	SIMDGuard simdGuard;
 	LOG(1, "x87_ficom\n", 11);
 	auto st0 = a1->getSt(0);
@@ -740,7 +740,7 @@ void x87_ficom(X87State *a1, int src, bool pop) {
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_ficom, (X87State * a1, int src, bool pop), x9);
+X87_TRAMPOLINE_ARGS(void, x87_ficom, (X87State *a1, int32_t src, bool pop), x9);
 #endif
 
 #if defined(X87_FIDIV)
@@ -761,7 +761,7 @@ void x87_fidiv(X87State *a1, int a2) {
 	a1->setSt(0, value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fidiv, (X87State * a1, int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fidiv, (X87State *a1, int a2), x9);
 #endif
 
 #if defined(X87_FIDIVR)
@@ -782,7 +782,7 @@ void x87_fidivr(X87State *a1, int a2) {
 	a1->setSt(0, value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fidivr, (X87State * a1, int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fidivr, (X87State *a1, int a2), x9);
 #endif
 
 #if defined(X87_FILD)
@@ -795,7 +795,7 @@ void x87_fild(X87State *a1, int64_t value) {
 	a1->setSt(0, static_cast<double>(value));
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fild, (X87State * a1, int64_t value), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fild, (X87State *a1, int64_t value), x9);
 #endif
 
 #if defined(X87_FIMUL)
@@ -815,7 +815,7 @@ void x87_fimul(X87State *a1, int a2) {
 	a1->setSt(0, value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fimul, (X87State * a1, int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fimul, (X87State *a1, int a2), x9);
 #endif
 
 void x87_fincstp(X87State *a1) {
@@ -1065,7 +1065,7 @@ void x87_fisub(X87State *a1, int a2) {
 	a1->setSt(0, value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fisub, (X87State * a1, int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fisub, (X87State *a1, int a2), x9);
 #endif
 
 #if defined(X87_FISUBR)
@@ -1087,12 +1087,12 @@ void x87_fisubr(X87State *a1, int a2) {
 	a1->setSt(0, value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fisubr, (X87State * a1, int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fisubr, (X87State *a1, int a2), x9);
 #endif
 
 // Push ST(i) onto the FPU register stack.
 #if defined(X87_FLD_STI)
-void x87_fld_STi(X87State *a1, unsigned int st_offset) {
+void x87_fld_STi(X87State *a1, uint32_t st_offset) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fld_STi\n", 13);
@@ -1108,7 +1108,7 @@ void x87_fld_STi(X87State *a1, unsigned int st_offset) {
 	a1->setSt(0, value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fld_STi, (X87State * a1, unsigned int st_offset), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fld_STi, (X87State *a1, uint32_t st_offset), x9);
 #endif
 
 #if defined(X87_FLD_CONSTANT)
@@ -1172,11 +1172,11 @@ void x87_fld_constant(X87State *a1, X87Constant a2) {
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fld_constant, (X87State * a1, X87Constant a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fld_constant, (X87State *a1, X87Constant a2), x9);
 #endif
 
 #if defined(X87_FLD_FP32)
-void x87_fld_fp32(X87State *a1, unsigned int a2) {
+void x87_fld_fp32(X87State *a1, uint32_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fld_fp32\n", 14);
@@ -1187,11 +1187,11 @@ void x87_fld_fp32(X87State *a1, unsigned int a2) {
 	a1->setSt(0, std::bit_cast<float>(a2));
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fld_fp32, (X87State * a1, unsigned int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fld_fp32, (X87State *a1, uint32_t a2), x9);
 #endif
 
 #if defined(X87_FLD_FP64)
-void x87_fld_fp64(X87State *a1, unsigned long long a2) {
+void x87_fld_fp64(X87State *a1, uint64_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fld_fp64\n", 14);
@@ -1202,7 +1202,7 @@ void x87_fld_fp64(X87State *a1, unsigned long long a2) {
 	a1->setSt(0, std::bit_cast<double>(a2));
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fld_fp64, (X87State * a1, unsigned long long a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fld_fp64, (X87State *a1, uint64_t a2), x9);
 #endif
 
 #if defined(X87_FLD_FP80)
@@ -1215,11 +1215,11 @@ void x87_fld_fp80(X87State *a1, X87Float80 a2) {
 	a1->setSt(0, ieee754);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fld_fp80, (X87State * a1, X87Float80 a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fld_fp80, (X87State *a1, X87Float80 a2), x9);
 #endif
 
 #if defined(X87_FMUL_ST)
-void x87_fmul_ST(X87State *a1, unsigned int st_offset_1, unsigned int st_offset_2, bool pop_stack) {
+void x87_fmul_ST(X87State *a1, uint32_t st_offset_1, uint32_t st_offset_2, bool pop_stack) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fmul_ST\n", 13);
@@ -1239,11 +1239,11 @@ void x87_fmul_ST(X87State *a1, unsigned int st_offset_1, unsigned int st_offset_
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fmul_ST, (X87State * a1, unsigned int st_offset_1, unsigned int st_offset_2, bool pop_stack), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fmul_ST, (X87State *a1, uint32_t st_offset_1, uint32_t st_offset_2, bool pop_stack), x9);
 #endif
 
 #if defined(X87_FMUL_F32)
-void x87_fmul_f32(X87State *a1, unsigned int fp32) {
+void x87_fmul_f32(X87State *a1, uint32_t fp32) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fmul_f32\n", 14);
@@ -1256,11 +1256,11 @@ void x87_fmul_f32(X87State *a1, unsigned int fp32) {
 	a1->setStFast(0, st0 * value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fmul_f32, (X87State * a1, unsigned int fp32), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fmul_f32, (X87State *a1, uint32_t fp32), x9);
 #endif
 
 #if defined(X87_FMUL_F64)
-void x87_fmul_f64(X87State *a1, unsigned long long a2) {
+void x87_fmul_f64(X87State *a1, uint64_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fmul_f64\n", 14);
@@ -1273,7 +1273,7 @@ void x87_fmul_f64(X87State *a1, unsigned long long a2) {
 	a1->setStFast(0, st0 * value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fmul_f64, (X87State * a1, unsigned long long a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fmul_f64, (X87State *a1, uint64_t a2), x9);
 #endif
 
 // Replace ST(1) with arctan(ST(1)/ST(0)) and pop the register stack.
@@ -1298,7 +1298,7 @@ void x87_fpatan(X87State *a1) {
 	a1->pop();
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fpatan, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fpatan, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FPREM)
@@ -1350,7 +1350,7 @@ void x87_fprem(X87State *a1) {
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fprem, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fprem, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FPREM1)
@@ -1402,7 +1402,7 @@ void x87_fprem1(X87State *a1) {
 	// else D<64 ⇒ CC2 stays clear (complete reduction)
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fprem1, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fprem1, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FPTAN)
@@ -1427,7 +1427,7 @@ void x87_fptan(X87State *a1) {
 	a1->setSt(0, 1.0);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fptan, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fptan, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FRNDINT)
@@ -1469,7 +1469,7 @@ void x87_frndint(X87State *a1) {
 	a1->setStFast(0, rounded);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_frndint, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_frndint, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FSCALE)
@@ -1499,7 +1499,7 @@ void x87_fscale(X87State *state) {
 	state->setSt(0, result);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fscale, (X87State * state), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fscale, (X87State *state), x9);
 #endif
 
 #if defined(X87_FSIN)
@@ -1517,7 +1517,7 @@ void x87_fsin(X87State *a1) {
 	a1->setStFast(0, sin(value));
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fsin, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fsin, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FSINCOS)
@@ -1546,7 +1546,7 @@ void x87_fsincos(X87State *a1) {
 	a1->statusWord &= ~X87StatusWordFlag::kConditionCode2;
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fsincos, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fsincos, (X87State *a1), x9);
 #endif
 
 // Computes square root of ST(0) and stores the result in ST(0).
@@ -1567,11 +1567,11 @@ void x87_fsqrt(X87State *a1) {
 	a1->setStFast(0, sqrt(value));
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fsqrt, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fsqrt, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FST_STI)
-void x87_fst_STi(X87State *a1, unsigned int st_offset, bool pop) {
+void x87_fst_STi(X87State *a1, uint32_t st_offset, bool pop) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fst_STi\n", 13);
@@ -1588,7 +1588,7 @@ void x87_fst_STi(X87State *a1, unsigned int st_offset, bool pop) {
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fst_STi, (X87State * a1, unsigned int st_offset, bool pop), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fst_STi, (X87State * a1, uint32_t st_offset, bool pop), x9);
 #endif
 
 #if defined(X87_FST_FP32)
@@ -1681,7 +1681,7 @@ X87_TRAMPOLINE_ARGS(X87Float80StatusWordResult, x87_fst_fp80, (X87State const *a
 #endif
 
 #if defined(X87_FSUB_ST)
-void x87_fsub_ST(X87State *a1, unsigned int st_offset1, unsigned int st_offset2, bool pop) {
+void x87_fsub_ST(X87State *a1, uint32_t st_offset1, uint32_t st_offset2, bool pop) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fsub_ST\n", 13);
@@ -1701,11 +1701,11 @@ void x87_fsub_ST(X87State *a1, unsigned int st_offset1, unsigned int st_offset2,
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fsub_ST, (X87State * a1, unsigned int st_offset1, unsigned int st_offset2, bool pop), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fsub_ST, (X87State * a1, uint32_t st_offset1, uint32_t st_offset2, bool pop), x9);
 #endif
 
 #if defined(X87_FSUB_F32)
-void x87_fsub_f32(X87State *a1, unsigned int a2) {
+void x87_fsub_f32(X87State *a1, uint32_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fsub_f32\n", 14);
@@ -1718,11 +1718,11 @@ void x87_fsub_f32(X87State *a1, unsigned int a2) {
 	a1->setStFast(0, st0 - value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fsub_f32, (X87State * a1, unsigned int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fsub_f32, (X87State *a1, uint32_t a2), x9);
 #endif
 
 #if defined(X87_FSUB_F64)
-void x87_fsub_f64(X87State *a1, unsigned long long a2) {
+void x87_fsub_f64(X87State *a1, uint64_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fsub_f64\n", 14);
@@ -1735,11 +1735,11 @@ void x87_fsub_f64(X87State *a1, unsigned long long a2) {
 	a1->setStFast(0, st0 - value);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fsub_f64, (X87State * a1, unsigned long long a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fsub_f64, (X87State *a1, uint64_t a2), x9);
 #endif
 
 #if defined(X87_FSUBR_ST)
-void x87_fsubr_ST(X87State *a1, unsigned int st_offset1, unsigned int st_offset2, bool pop) {
+void x87_fsubr_ST(X87State *a1, uint32_t st_offset1, uint32_t st_offset2, bool pop) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fsubr_ST\n", 14);
@@ -1759,7 +1759,7 @@ void x87_fsubr_ST(X87State *a1, unsigned int st_offset1, unsigned int st_offset2
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fsubr_ST, (X87State * a1, unsigned int st_offset1, unsigned int st_offset2, bool pop), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fsubr_ST, (X87State *a1, uint32_t st_offset1, uint32_t st_offset2, bool pop), x9);
 #endif
 
 #if defined(X87_FSUBR_F32)
@@ -1776,11 +1776,11 @@ void x87_fsubr_f32(X87State *a1, unsigned int a2) {
 	a1->setStFast(0, value - st0);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fsubr_f32, (X87State * a1, unsigned int a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fsubr_f32, (X87State *a1, uint32_t a2), x9);
 #endif
 
 #if defined(X87_FSUBR_F64)
-void x87_fsubr_f64(X87State *a1, unsigned long long a2) {
+void x87_fsubr_f64(X87State *a1, uint64_t a2) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fsubr_f64\n", 15);
@@ -1793,11 +1793,11 @@ void x87_fsubr_f64(X87State *a1, unsigned long long a2) {
 	a1->setStFast(0, value - st0);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fsubr_f64, (X87State * a1, unsigned long long a2), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fsubr_f64, (X87State *a1, uint64_t a2), x9);
 #endif
 
 #if defined(X87_FUCOM)
-void x87_fucom(X87State *a1, unsigned int st_offset, unsigned int pop) {
+void x87_fucom(X87State *a1, uint32_t st_offset, uint32_t pop) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fucom\n", 11);
@@ -1825,11 +1825,11 @@ void x87_fucom(X87State *a1, unsigned int st_offset, unsigned int pop) {
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fucom, (X87State * a1, unsigned int st_offset, unsigned int pop), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fucom, (X87State *a1, uint32_t st_offset, uint32_t pop), x9);
 #endif
 
 #if defined(X87_FUCOMI)
-uint32_t x87_fucomi(X87State *state, unsigned int st_offset, bool pop_stack) {
+uint32_t x87_fucomi(X87State *state, uint32_t st_offset, bool pop_stack) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fucomi\n", 12);
@@ -1866,7 +1866,7 @@ uint32_t x87_fucomi(X87State *state, unsigned int st_offset, bool pop_stack) {
 	return flags;
 }
 #else
-X87_TRAMPOLINE_ARGS(uint32_t, x87_fucomi, (X87State * state, unsigned int st_offset, bool pop_stack), x9);
+X87_TRAMPOLINE_ARGS(uint32_t, x87_fucomi, (X87State *state, uint32_t st_offset, bool pop_stack), x9);
 #endif
 
 #if defined(X87_FXAM)
@@ -1917,11 +1917,11 @@ void x87_fxam(X87State *a1) {
 	}
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fxam, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fxam, (X87State *a1), x9);
 #endif
 
 #if defined(X87_FXCH)
-void x87_fxch(X87State *a1, unsigned int st_offset) {
+void x87_fxch(X87State *a1, uint32_t st_offset) {
 	SIMDGuard simdGuard;
 
 	LOG(1, "x87_fxch\n", 10);
@@ -1936,7 +1936,7 @@ void x87_fxch(X87State *a1, unsigned int st_offset) {
 	a1->setSt(st_offset, st0);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fxch, (X87State * a1, unsigned int st_offset), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fxch, (X87State *a1, uint32_t st_offset), x9);
 #endif
 
 #if defined(X87_FXTRACT)
@@ -1972,7 +1972,7 @@ void x87_fxtract(X87State *a1) {
 	a1->setSt(0, m);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fxtract, (X87State * a1), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fxtract, (X87State *a1), x9);
 #endif
 
 void fyl2x_common(X87State *state, double constant) {
@@ -2002,7 +2002,7 @@ void x87_fyl2x(X87State *state) {
 	fyl2x_common(state, 0.0);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fyl2x, (X87State * state), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fyl2x, (X87State *state), x9);
 #endif
 
 // Replace ST(1) with (ST(1) ∗ log2ST(0 + 1.0)) and pop the register stack.
@@ -2014,7 +2014,7 @@ void x87_fyl2xp1(X87State *state) {
 	fyl2x_common(state, 1.0);
 }
 #else
-X87_TRAMPOLINE_ARGS(void, x87_fyl2xp1, (X87State * state), x9);
+X87_TRAMPOLINE_ARGS(void, x87_fyl2xp1, (X87State *state), x9);
 #endif
 
 X87_TRAMPOLINE(sse_pcmpestri, x9)
