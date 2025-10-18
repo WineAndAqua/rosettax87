@@ -29,16 +29,16 @@ int main() {
 	unsigned int model = (eax >> 4) & 0xF;
 	unsigned int family = (eax >> 8) & 0xF;
 	unsigned int type = (eax >> 12) & 0x3;
-	unsigned int ext_model = (eax >> 16) & 0xF;
-	unsigned int ext_family = (eax >> 20) & 0xFF;
+	unsigned int extModel = (eax >> 16) & 0xF;
+	unsigned int extFamily = (eax >> 20) & 0xFF;
 
 	// Print processor information
 	printf("CPU Info:\n");
 	printf("  Family: %d (0x%X)\n", family, family);
 	printf("  Model: %d (0x%X)\n", model, model);
 	printf("  Stepping: %d (0x%X)\n", stepping, stepping);
-	printf("  Extended Family: %d (0x%X)\n", ext_family, ext_family);
-	printf("  Extended Model: %d (0x%X)\n", ext_model, ext_model);
+	printf("  Extended Family: %d (0x%X)\n", extFamily, extFamily);
+	printf("  Extended Model: %d (0x%X)\n", extModel, extModel);
 
 	// Print feature flags
 	printf("Feature Flags:\n");

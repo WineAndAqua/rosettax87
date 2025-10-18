@@ -29,15 +29,15 @@ struct X87State;
 struct X87Float80StatusWordResult {
 	uint64_t mantissa;
 	uint16_t exponent;
-	uint16_t status_word;
+	uint16_t statusWord;
 };
 
 struct X87ResultStatusWord {
 	union {
 		uint64_t result;
-		int64_t signed_result;
+		int64_t signedResult;
 	};
-	uint16_t status_word;
+	uint16_t statusWord;
 };
 static_assert(sizeof(X87ResultStatusWord) == 0x10);
 
