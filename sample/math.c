@@ -21,10 +21,10 @@ clock_t run_add() {
 	}
 
 	clock_t end = clock();
-	clock_t time_spent = (end - start);
+	clock_t timeSpent = (end - start);
 
 	printf("Result: %x\n", *(uint32_t *)&three);
-	return time_spent;
+	return timeSpent;
 }
 
 clock_t run_div() {
@@ -40,10 +40,10 @@ clock_t run_div() {
 	}
 
 	clock_t end = clock();
-	clock_t time_spent = (end - start);
+	clock_t timeSpent = (end - start);
 
 	printf("Result: %x\n", *(uint32_t *)&three);
-	return time_spent;
+	return timeSpent;
 }
 
 clock_t run_mul() {
@@ -59,10 +59,10 @@ clock_t run_mul() {
 	}
 
 	clock_t end = clock();
-	clock_t time_spent = (end - start);
+	clock_t timeSpent = (end - start);
 
 	printf("Result: %x\n", *(uint32_t *)&three);
-	return time_spent;
+	return timeSpent;
 }
 
 clock_t run_fsqrt() {
@@ -77,10 +77,10 @@ clock_t run_fsqrt() {
 	}
 
 	clock_t end = clock();
-	clock_t time_spent = (end - start);
+	clock_t timeSpent = (end - start);
 
 	printf("Result: %x\n", *(uint32_t *)&four);
-	return time_spent;
+	return timeSpent;
 }
 
 int main() {
