@@ -24,13 +24,14 @@ private:
 	task_t taskPort_;
 	std::map<uint64_t, uint32_t> breakpoints_; // addr -> original instruction
 
-	bool waitForEvent(int *status) {
-		if (waitpid(childPid_, status, 0) == -1) {
+	bool waitForStopped() {
+		int status;
+		if (waitpid(childPid_, &status, 0) == -1) {
 			perror("waitpid");
 			return false;
 		}
-		if (WIFSTOPPED(*status)) {
-			int signal = WSTOPSIG(*status);
+		if (WIFSTOPPED(status)) {
+			int signal = WSTOPSIG(status);
 			printf("Process stopped signal=%d\n", signal);
 			return true;
 		}
@@ -66,8 +67,9 @@ public:
 			return false;
 		}
 
-		int status;
-		waitForEvent(&status);
+		if (!waitForStopped()) {
+			return false;
+		}
 		printf("Program stopped due to debugger being attached\n");
 
 		if (!continueExecution()) {
@@ -89,10 +91,9 @@ public:
 			return false;
 		}
 
-		printf("continueExecution waiting for event ..\n");
+		printf("continueExecution...\n");
 
-		int status;
-		return waitForEvent(&status);
+		return waitForStopped();
 	}
 
 	bool detach() {
