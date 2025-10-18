@@ -1,6 +1,7 @@
 #include "Export.h"
-
 #include "X87.h"
+
+#include <array>
 
 __attribute__((used)) init_library_t orig_init_library;
 __attribute__((used)) register_runtime_routine_offsets_t orig_register_runtime_routine_offsets;

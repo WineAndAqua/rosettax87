@@ -1,5 +1,7 @@
 #include "offset_finder.hpp"
 
+#include <fstream>
+
 auto OffsetFinder::setDefaultOffsets() -> void {
 	// These are the default offsets for the rosetta runtime that matches MD5 hash: d7819a04355cd77ff24031800a985c13
 
