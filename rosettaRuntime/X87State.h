@@ -317,10 +317,10 @@ struct X87State {
 			statusWord |= X87StatusWordFlag::kStackFault | X87StatusWordFlag::kInvalidOperation;
 			return std::numeric_limits<double>::quiet_NaN();
 		}
-#if !defined(X87_CONVERT_TO_FP80)
-		return st[regIdx].ieee754;
-#else
+#if defined(X87_CONVERT_TO_FP80)
 		return ConvertX87RegisterToFloat64(st[regIdx], &statusWord);
+#else
+		return st[regIdx].ieee754;
 #endif
 	}
 
@@ -335,11 +335,11 @@ struct X87State {
 			return {std::numeric_limits<double>::quiet_NaN(), newStatusWord | X87StatusWordFlag::kStackFault | X87StatusWordFlag::kInvalidOperation};
 		}
 
-#if !defined(X87_CONVERT_TO_FP80)
-		return {st[regIdx].ieee754, newStatusWord};
-#else
+#if defined(X87_CONVERT_TO_FP80)
 		auto value = ConvertX87RegisterToFloat64(st[regIdx], &newStatusWord);
 		return {value, newStatusWord};
+#else
+		return {st[regIdx].ieee754, newStatusWord};
 #endif
 	}
 
@@ -354,11 +354,11 @@ struct X87State {
 			return {std::numeric_limits<float>::quiet_NaN(), newStatusWord | X87StatusWordFlag::kStackFault | X87StatusWordFlag::kInvalidOperation};
 		}
 
-#if !defined(X87_CONVERT_TO_FP80)
-		return {st[regIdx].ieee754, newStatusWord};
-#else
+#if defined(X87_CONVERT_TO_FP80)
 		auto value = ConvertX87RegisterToFloat32(st[regIdx], &newStatusWord);
 		return {value, newStatusWord};
+#else
+		return {st[regIdx].ieee754, newStatusWord};
 #endif
 	}
 
@@ -387,11 +387,11 @@ struct X87State {
 	__attribute__((always_inline)) auto setSt(uint32_t stOffset, double value) -> void {
 		auto stIdx = getStIndex(stOffset);
 
-#if !defined(X87_CONVERT_TO_FP80)
-		st[stIdx].ieee754 = value;
-#else
+#if defined(X87_CONVERT_TO_FP80)
 		// Convert value to x87 format
 		st[stIdx] = ConvertFloat64ToX87Register(value, &statusWord);
+#else
+		st[stIdx].ieee754 = value;
 #endif
 		X87TagState tag;
 		if (value == 0.0) {
@@ -410,12 +410,12 @@ struct X87State {
 	__attribute__((always_inline)) auto setStFast(uint32_t stOffset, double value) -> void {
 		const uint32_t idx = getStIndex(stOffset);
 
-#if !defined(X87_CONVERT_TO_FP80)
-		// Direct IEEE-754 store
-		st[idx].ieee754 = value;
-#else
+#if defined(X87_CONVERT_TO_FP80)
 		// Convert to FP80 format without modifying statusWord
 		st[idx] = ConvertFloat64ToX87Register(value, nullptr);
+#else
+		// Direct IEEE-754 store
+		st[idx].ieee754 = value;
 #endif
 
 		// Clear both tag bits → 00 (kValid)
@@ -426,12 +426,12 @@ struct X87State {
 	__attribute__((always_inline)) auto getStFast(uint32_t stOffset) const -> double {
 		// Compute absolute slot index
 		const uint32_t idx = getStIndex(stOffset);
-#if !defined(X87_CONVERT_TO_FP80)
-		// Direct IEEE-754 load
-		return st[idx].ieee754;
-#else
+#if defined(X87_CONVERT_TO_FP80)
 		// If you still need FP80 support, convert without touching statusWord
 		return ConvertX87RegisterToFloat64(st[idx], nullptr);
+#else
+		// Direct IEEE-754 load
+		return st[idx].ieee754;
 #endif
 	}
 

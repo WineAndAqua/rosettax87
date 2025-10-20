@@ -122,14 +122,14 @@ X87_TRAMPOLINE(translator_get_branch_entries, x9)
 X87_TRAMPOLINE(translator_get_instruction_offsets, x9)
 X87_TRAMPOLINE(translator_apply_fixups, x9)
 
-#if !defined(X87_CONVERT_TO_FP80)
+#if defined(X87_CONVERT_TO_FP80)
+X87_TRAMPOLINE_ARGS(void, x87_init, (X87State *a1), x9);
+#else
 void x87_init(X87State *a1) {
 	SIMDGuardFull simdGuard;
 	LOG(1, "x87_init\n", 9);
 	*a1 = X87State();
 }
-#else
-X87_TRAMPOLINE_ARGS(void, x87_init, (X87State *a1), x9);
 #endif
 
 X87_TRAMPOLINE(x87_state_from_x86_float_state, x9);
