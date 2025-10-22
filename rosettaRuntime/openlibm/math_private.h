@@ -97,19 +97,4 @@ typedef union {
 
 #define STRICT_ASSIGN(type, lval, rval) ((lval) = (rval))
 
-double fabs(double);
-double atan(double);
-double floor(double);
-double scalbn(double, int);
-double copysign(double, double);
-
-/* fdlibm kernel function */
-int __kernel_rem_pio2(double *, double *, int, int, int);
-
-/* double precision kernel functions */
-int __ieee754_rem_pio2(double, double *);
-double __kernel_sin(double, double, int);
-double __kernel_cos(double, double);
-double __kernel_tan(double, double, int);
-
 #endif /* !_MATH_PRIVATE_H_ */

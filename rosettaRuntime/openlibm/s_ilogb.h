@@ -21,12 +21,11 @@
 
 #include <limits.h>
 
-#define FP_ILOGB0 (-INT_MAX)
-#define FP_ILOGBNAN INT_MAX
-
 #include "math_private.h"
 
-int ilogb(double x) {
+static inline __attribute__((always_inline))
+int
+openlibm_ilogb(double x) {
 	int32_t hx, lx, ix;
 
 	EXTRACT_WORDS(hx, lx, x);

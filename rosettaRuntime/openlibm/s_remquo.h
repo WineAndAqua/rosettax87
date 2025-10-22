@@ -1,6 +1,5 @@
-
 /* @(#)e_fmod.c 1.3 95/01/18 */
-/*
+/*-
  * ====================================================
  * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
  *
@@ -11,27 +10,29 @@
  * ====================================================
  */
 
-//__FBSDID("$FreeBSD: src/lib/msun/src/e_fmod.c,v 1.10 2008/02/22 02:30:34 das Exp $");
+//__FBSDID("$FreeBSD: src/lib/msun/src/s_remquo.c,v 1.2 2008/03/30 20:47:26 das Exp $");
 
-/*
- * fmod(x,y)
- * Return x mod y in exact arithmetic
- * Method: shift and subtract
- */
+#include <float.h>
 
 #include "math_private.h"
 
-static const double
-	one = 1.0,
-	Zero[] = { 0.0, -0.0 };
-
-double
-fmod(double x, double y) {
+/*
+ * Return the IEEE remainder and set *quo to the last n bits of the
+ * quotient, rounded to the nearest integer.  We choose n=31 because
+ * we wind up computing all the integer bits of the quotient anyway as
+ * a side-effect of computing the remainder by the shift and subtract
+ * method.  In practice, this is far more bits than are needed to use
+ * remquo in reduction algorithms.
+ */
+static inline __attribute__((always_inline))
+double openlibm_remquo(double x, double y, int *quo) {
+	static const double Zero[] = { 0.0, -0.0 };
 	int32_t n, hx, hy, hz, ix, iy, sx, i;
-	uint32_t lx, ly, lz;
+	uint32_t lx, ly, lz, q, sxy;
 
 	EXTRACT_WORDS(hx, lx, x);
 	EXTRACT_WORDS(hy, ly, y);
+	sxy = (hx ^ hy) & 0x80000000;
 	sx = hx & 0x80000000; /* sign of x */
 	hx ^= sx;             /* |x| */
 	hy &= 0x7fffffff;     /* |y| */
@@ -41,10 +42,14 @@ fmod(double x, double y) {
 		((hy | ((ly | -ly) >> 31)) > 0x7ff00000)) /* or y is NaN */
 		return (x * y) / (x * y);
 	if (hx <= hy) {
-		if ((hx < hy) || (lx < ly))
-			return x; /* |x|<|y| return x */
-		if (lx == ly)
+		if ((hx < hy) || (lx < ly)) {
+			q = 0;
+			goto fixup; /* |x|<|y| return x or x-y */
+		}
+		if (lx == ly) {
+			*quo = (sxy ? -1 : 1);
 			return Zero[(uint32_t)sx >> 31]; /* |x|=|y| return x*0*/
+		}
 	}
 
 	/* determine ix = ilogb(x) */
@@ -99,6 +104,7 @@ fmod(double x, double y) {
 
 	/* fix point fmod */
 	n = ix - iy;
+	q = 0;
 	while (n--) {
 		hz = hx - hy;
 		lz = lx - ly;
@@ -108,11 +114,11 @@ fmod(double x, double y) {
 			hx = hx + hx + (lx >> 31);
 			lx = lx + lx;
 		} else {
-			if ((hz | lz) == 0) /* return sign(x)*0 */
-				return Zero[(uint32_t)sx >> 31];
 			hx = hz + hz + (lz >> 31);
 			lx = lz + lz;
+			q++;
 		}
+		q <<= 1;
 	}
 	hz = hx - hy;
 	lz = lx - ly;
@@ -121,11 +127,15 @@ fmod(double x, double y) {
 	if (hz >= 0) {
 		hx = hz;
 		lx = lz;
+		q++;
 	}
 
 	/* convert back to floating value and restore the sign */
-	if ((hx | lx) == 0) /* return sign(x)*0 */
+	if ((hx | lx) == 0) { /* return sign(x)*0 */
+		q &= 0x7fffffff;
+		*quo = (sxy ? -q : q);
 		return Zero[(uint32_t)sx >> 31];
+	}
 	while (hx < 0x00100000) { /* normalize x */
 		hx = hx + hx + (lx >> 31);
 		lx = lx + lx;
@@ -133,7 +143,6 @@ fmod(double x, double y) {
 	}
 	if (iy >= -1022) { /* normalize output */
 		hx = ((hx - 0x00100000) | ((iy + 1023) << 20));
-		INSERT_WORDS(x, hx | sx, lx);
 	} else { /* subnormal output */
 		n = -1022 - iy;
 		if (n <= 20) {
@@ -141,13 +150,27 @@ fmod(double x, double y) {
 			hx >>= n;
 		} else if (n <= 31) {
 			lx = (hx << (32 - n)) | (lx >> n);
-			hx = sx;
+			hx = 0;
 		} else {
 			lx = hx >> (n - 32);
-			hx = sx;
+			hx = 0;
 		}
-		INSERT_WORDS(x, hx | sx, lx);
-		x *= one; /* create necessary signal */
 	}
-	return x; /* exact output */
+fixup:
+	INSERT_WORDS(x, hx, lx);
+	y = fabs(y);
+	if (y < 0x1p-1021) {
+		if (x + x > y || (x + x == y && (q & 1))) {
+			q++;
+			x -= y;
+		}
+	} else if (x > 0.5 * y || (x == 0.5 * y && (q & 1))) {
+		q++;
+		x -= y;
+	}
+	GET_HIGH_WORD(hx, x);
+	SET_HIGH_WORD(x, hx ^ sx);
+	q &= 0x7fffffff;
+	*quo = (sxy ? -q : q);
+	return x;
 }

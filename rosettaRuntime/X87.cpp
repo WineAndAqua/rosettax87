@@ -3,6 +3,17 @@
 #include "Log.h"
 #include "SIMDGuard.h"
 #include "X87State.h"
+#include "openlibm/s_tan.h"
+#include "openlibm/s_remquo.h"
+#include "openlibm/s_exp2.h"
+#include "openlibm/e_log2.h"
+#include "openlibm/e_pow.h"
+#include "openlibm/s_cos.h"
+#include "openlibm/s_sin.h"
+#include "openlibm/s_atan.h"
+#include "openlibm/e_atan2.h"
+#include "openlibm/e_fmod.h"
+#include "openlibm/s_ilogb.h"
 
 #include <cstring>
 
@@ -152,7 +163,7 @@ void x87_f2xm1(X87State *state) {
 	}
 
 	// Calculate 2^x - 1 using mmath::exp2
-	auto result = exp2(x) - 1.0f;
+	auto result = openlibm_exp2(x) - 1.0f;
 
 	// Store result back in ST(0)
 	state->setStFast(0, result);
@@ -548,7 +559,7 @@ void x87_fcos(X87State *a1) {
 	auto value = a1->getStFast(0);
 
 	// Calculate cosine
-	auto result = cos(value);
+	auto result = openlibm_cos(value);
 
 	// Store result back in ST(0)
 	a1->setStFast(0, result);
@@ -1290,7 +1301,7 @@ void x87_fpatan(X87State *a1) {
 	auto st1 = a1->getSt(1);
 
 	// Calculate arctan(ST(1)/ST(0))
-	auto result = atan2(st1, st0);
+	auto result = openlibm_atan2(st1, st0);
 
 	// Store result in ST(1) and pop the register stack
 	a1->setSt(1, result);
@@ -1328,7 +1339,7 @@ void x87_fprem(X87State *a1) {
 	double rawDiv = st0 / st1;
 	double truncDiv = std::trunc(rawDiv); // Q = trunc(ST0/ST1)
 	int q = static_cast<int>(truncDiv);
-	double rem = std::fmod(st0, st1); // rem = ST0 - Q*ST1
+	double rem = openlibm_fmod(st0, st1); // rem = ST0 - Q*ST1
 	a1->setSt(0, rem);
 
 	// 4) CC0, CC1, CC3 ← low bits of Q (Q2→CC0, Q0→CC1, Q1→CC3)
@@ -1341,8 +1352,8 @@ void x87_fprem(X87State *a1) {
 
 	// 5) CC2 “incomplete” if exponent gap > 0
 	//    D = E0 – E1; E = std::ilogb(x)
-	int e0 = std::ilogb(st0);
-	int e1 = std::ilogb(st1);
+	int e0 = openlibm_ilogb(st0);
+	int e1 = openlibm_ilogb(st1);
 	int D = e0 - e1;
 	if (D > 0) {
 		a1->statusWord |= kConditionCode2;
@@ -1377,7 +1388,7 @@ void x87_fprem1(X87State *a1) {
 
 	// 3) IEEE-754 remainder with nearest-integer quotient
 	int q;
-	double rem = std::remquo(st0, st1, &q);
+	double rem = openlibm_remquo(st0, st1, &q);
 	// rem = ST0 – q*ST1, where q = round-to-nearest(ST0/ST1), ties-to-even
 	a1->setSt(0, rem);
 
@@ -1391,8 +1402,8 @@ void x87_fprem1(X87State *a1) {
 		a1->statusWord |= kConditionCode3;
 
 	// 5) CC2 = “incomplete” flag based on exponent diff D = E0 – E1
-	int e0 = std::ilogb(st0); // unbiased exponent of st0
-	int e1 = std::ilogb(st1); // unbiased exponent of st1
+	int e0 = openlibm_ilogb(st0); // unbiased exponent of st0
+	int e1 = openlibm_ilogb(st1); // unbiased exponent of st1
 	int D = e0 - e1;
 	if (D >= 64) {
 		a1->statusWord |= kConditionCode2;
@@ -1417,7 +1428,7 @@ void x87_fptan(X87State *a1) {
 	const auto value = a1->getSt(0);
 
 	// Calculate tangent
-	auto tan_value = tan(value);
+	auto tan_value = openlibm_tan(value);
 
 	// Store result in ST(0)
 	a1->setSt(0, tan_value);
@@ -1514,7 +1525,7 @@ void x87_fsin(X87State *a1) {
 	const double value = a1->getStFast(0);
 
 	// Store result and update tag
-	a1->setStFast(0, sin(value));
+	a1->setStFast(0, openlibm_sin(value));
 }
 #else
 X87_TRAMPOLINE_ARGS(void, x87_fsin, (X87State *a1), x9);
@@ -1532,8 +1543,8 @@ void x87_fsincos(X87State *a1) {
 	const auto value = a1->getStFast(0);
 
 	// Calculate sine and cosine
-	auto sin_value = sin(value);
-	auto cos_value = cos(value);
+	auto sin_value = openlibm_sin(value);
+	auto cos_value = openlibm_cos(value);
 
 	// Store sine in ST(0)
 	a1->setStFast(0, sin_value);
@@ -1963,8 +1974,8 @@ void x87_fxtract(X87State *a1) {
 		return;
 	}
 
-	auto e = std::floor(log2(abs(st0)));
-	auto m = st0 / pow(2.0, e);
+	auto e = std::floor(openlibm_log2(abs(st0)));
+	auto m = st0 / openlibm_pow(2.0, e);
 
 	a1->setSt(0, e);
 
@@ -1975,6 +1986,7 @@ void x87_fxtract(X87State *a1) {
 X87_TRAMPOLINE_ARGS(void, x87_fxtract, (X87State *a1), x9);
 #endif
 
+static inline __attribute__((always_inline))
 void fyl2x_common(X87State *state, double constant) {
 	// Clear condition code 1
 	state->statusWord &= ~X87StatusWordFlag::kConditionCode1;
@@ -1984,7 +1996,7 @@ void fyl2x_common(X87State *state, double constant) {
 	auto st1 = state->getSt(1);
 
 	// Calculate y * log2(x)
-	auto result = st1 * (log2(st0 + constant));
+	auto result = st1 * (openlibm_log2(st0 + constant));
 
 	// Pop ST(0)
 	state->pop();

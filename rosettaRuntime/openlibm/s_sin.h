@@ -47,7 +47,9 @@
 
 #include "math_private.h"
 
-double sin(double x) {
+static inline __attribute__((always_inline))
+double
+openlibm_sin(double x) {
 	double y[2], z = 0.0;
 	int32_t n, ix;
 

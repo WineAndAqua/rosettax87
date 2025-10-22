@@ -28,15 +28,15 @@
 #include "k_log.h"
 #include "math_private.h"
 
-static const double
-	two54 = 1.80143985094819840000e+16,   /* 0x43500000, 0x00000000 */
-	ivln2hi = 1.44269504072144627571e+00, /* 0x3ff71547, 0x65200000 */
-	ivln2lo = 1.67517131648865118353e-10; /* 0x3de705fc, 0x2eefa200 */
 
-static const double zero = 0.0;
-
+static inline __attribute__((always_inline))
 double
-log2(double x) {
+openlibm_log2(double x) {
+	static const double
+		two54 = 1.80143985094819840000e+16,   /* 0x43500000, 0x00000000 */
+		ivln2hi = 1.44269504072144627571e+00, /* 0x3ff71547, 0x65200000 */
+		ivln2lo = 1.67517131648865118353e-10; /* 0x3de705fc, 0x2eefa200 */
+	static const double zero = 0.0;
 	double f, hfsq, hi, lo, r, val_hi, val_lo, w, y;
 	int32_t i, k, hx;
 	uint32_t lx;
