@@ -137,7 +137,7 @@ X87_TRAMPOLINE(translator_apply_fixups, x9)
 X87_TRAMPOLINE_ARGS(void, x87_init, (X87State *a1), x9);
 #else
 void x87_init(X87State *a1) {
-	SIMDGuardFull simdGuard;
+	SIMDGuard simdGuard;
 	LOG(1, "x87_init\n", 9);
 	*a1 = X87State();
 }
@@ -149,7 +149,7 @@ X87_TRAMPOLINE(x87_pop_register_stack, x9);
 
 #if defined(X87_F2XM1)
 void x87_f2xm1(X87State *state) {
-	SIMDGuard simdGuard;
+	SIMDGuardFull simdGuard;
 
 	LOG(1, "x87_f2xm1\n", 10);
 	// Get value from ST(0)
@@ -300,6 +300,7 @@ X87_TRAMPOLINE_ARGS(void, x87_fbld, (X87State *a1, uint64_t a2, uint64_t a3), x9
 
 #if defined(X87_FBSTP)
 uint128_t x87_fbstp(X87State *a1) {
+	SIMDGuardAndX0X7 simdGuard;
 	LOG(1, "x87_fbstp\n", 11);
 
 	auto st0 = a1->getSt(0);
@@ -551,7 +552,7 @@ X87_TRAMPOLINE_ARGS(uint32_t, x87_fcomi, (X87State *state, uint32_t st_offset, b
 
 #if defined(X87_FCOS)
 void x87_fcos(X87State *a1) {
-	SIMDGuardFull simdGuard;
+	SIMDGuardFullAndX0X7 simdGuard;
 
 	LOG(1, "x87_fcos\n", 10);
 	a1->statusWord &= ~(kConditionCode1 | kConditionCode2);
@@ -798,7 +799,6 @@ X87_TRAMPOLINE_ARGS(void, x87_fidivr, (X87State *a1, int a2), x9);
 
 #if defined(X87_FILD)
 void x87_fild(X87State *a1, int64_t value) {
-	__asm__ volatile("" : : : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7");
 	SIMDGuard simdGuard;
 	LOG(1, "x87_fild\n", 10);
 
@@ -1177,7 +1177,7 @@ void x87_fld_constant(X87State *a1, X87Constant a2) {
 		break;
 
 		default: {
-			simplePrintf("x87_fld_constant ERROR %d\n", (int)a2);
+			//simplePrintf("x87_fld_constant ERROR %d\n", (int)a2);
 		}
 		break;
 	}
@@ -1218,6 +1218,7 @@ X87_TRAMPOLINE_ARGS(void, x87_fld_fp64, (X87State *a1, uint64_t a2), x9);
 
 #if defined(X87_FLD_FP80)
 void x87_fld_fp80(X87State *a1, X87Float80 a2) {
+	SIMDGuard simdGuard;
 	LOG(1, "x87_fld_fp80\n", 14);
 
 	auto ieee754 = ConvertX87RegisterToFloat64(a2, &a1->statusWord);
@@ -1290,7 +1291,7 @@ X87_TRAMPOLINE_ARGS(void, x87_fmul_f64, (X87State *a1, uint64_t a2), x9);
 // Replace ST(1) with arctan(ST(1)/ST(0)) and pop the register stack.
 #if defined(X87_FPATAN)
 void x87_fpatan(X87State *a1) {
-	SIMDGuard simdGuard;
+	SIMDGuardFull simdGuard;
 
 	LOG(1, "x87_fpatan\n", 12);
 
@@ -1314,7 +1315,7 @@ X87_TRAMPOLINE_ARGS(void, x87_fpatan, (X87State *a1), x9);
 
 #if defined(X87_FPREM)
 void x87_fprem(X87State *a1) {
-	SIMDGuard simdGuard;
+	SIMDGuardAndX0X7 simdGuard;
 	LOG(1, "x87_fprem\n", 11);
 
 	// 1) Clear CC0–CC3
@@ -1366,7 +1367,7 @@ X87_TRAMPOLINE_ARGS(void, x87_fprem, (X87State *a1), x9);
 
 #if defined(X87_FPREM1)
 void x87_fprem1(X87State *a1) {
-	SIMDGuard simdGuard;
+	SIMDGuardAndX0X7 simdGuard;
 	LOG(1, "x87_fprem1\n", 12);
 
 	// 1) clear condition-code bits CC0–CC3
@@ -1418,7 +1419,7 @@ X87_TRAMPOLINE_ARGS(void, x87_fprem1, (X87State *a1), x9);
 
 #if defined(X87_FPTAN)
 void x87_fptan(X87State *a1) {
-	SIMDGuard simdGuard;
+	SIMDGuardFullAndX0X7 simdGuard;
 
 	LOG(1, "x87_fptan\n", 11);
 
@@ -1515,7 +1516,7 @@ X87_TRAMPOLINE_ARGS(void, x87_fscale, (X87State *state), x9);
 
 #if defined(X87_FSIN)
 void x87_fsin(X87State *a1) {
-	SIMDGuardFull simdGuard;
+	SIMDGuardFullAndX0X7 simdGuard;
 
 	LOG(1, "x87_fsin\n", 10);
 
@@ -1533,7 +1534,7 @@ X87_TRAMPOLINE_ARGS(void, x87_fsin, (X87State *a1), x9);
 
 #if defined(X87_FSINCOS)
 void x87_fsincos(X87State *a1) {
-	SIMDGuardFull simdGuard;
+	SIMDGuardFullAndX0X7 simdGuard;
 
 	LOG(1, "x87_fsincos\n", 13);
 
