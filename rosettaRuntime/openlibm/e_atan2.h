@@ -45,18 +45,19 @@
 
 #include "math_private.h"
 
-static volatile double
-	tiny = 1.0e-300;
-static const double
-	zero = 0.0,
-	pi_o_4 = 7.8539816339744827900E-01, /* 0x3FE921FB, 0x54442D18 */
-	pi_o_2 = 1.5707963267948965580E+00, /* 0x3FF921FB, 0x54442D18 */
-	pi = 3.1415926535897931160E+00;     /* 0x400921FB, 0x54442D18 */
-static volatile double
-	pi_lo = 1.2246467991473531772E-16; /* 0x3CA1A626, 0x33145C07 */
 
+static inline __attribute__((always_inline))
 double
-atan2(double y, double x) {
+openlibm_atan2(double y, double x) {
+	static volatile double
+		tiny = 1.0e-300;
+	static const double
+		zero = 0.0,
+		pi_o_4 = 7.8539816339744827900E-01, /* 0x3FE921FB, 0x54442D18 */
+		pi_o_2 = 1.5707963267948965580E+00, /* 0x3FF921FB, 0x54442D18 */
+		pi = 3.1415926535897931160E+00;     /* 0x400921FB, 0x54442D18 */
+	static volatile double
+		pi_lo = 1.2246467991473531772E-16; /* 0x3CA1A626, 0x33145C07 */
 	double z;
 	int32_t k, m, hx, hy, ix, iy;
 	uint32_t lx, ly;
@@ -69,7 +70,7 @@ atan2(double y, double x) {
 		((iy | ((ly | -ly) >> 31)) > 0x7ff00000)) /* x or y is NaN */
 		return x + y;
 	if (hx == 0x3ff00000 && lx == 0)
-		return atan(y);                      /* x=1.0 */
+		return openlibm_atan(y);                      /* x=1.0 */
 	m = ((hy >> 31) & 1) | ((hx >> 30) & 2); /* 2*sign(x)+sign(y) */
 
 	/* when y = 0 */
@@ -126,7 +127,7 @@ atan2(double y, double x) {
 	} else if (hx < 0 && k < -60)
 		z = 0.0; /* 0 > |y|/x > -2**-60 */
 	else
-		z = atan(fabs(y / x)); /* safe to do y/x */
+		z = openlibm_atan(fabs(y / x)); /* safe to do y/x */
 	switch (m) {
 	case 0:
 		return z; /* atan(+,+) */

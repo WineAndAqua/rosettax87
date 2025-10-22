@@ -1,4 +1,4 @@
-/* @(#)s_tan.c 5.1 93/09/24 */
+/* @(#)s_cos.c 5.1 93/09/24 */
 /*
  * ====================================================
  * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
@@ -10,13 +10,14 @@
  * ====================================================
  */
 
-//__FBSDID("$FreeBSD: src/lib/msun/src/s_tan.c,v 1.13 2011/02/10 07:37:50 das Exp $");
+//__FBSDID("$FreeBSD: src/lib/msun/src/s_cos.c,v 1.13 2011/02/10 07:37:50 das Exp $");
 
-/* tan(x)
- * Return tangent function of x.
+/* cos(x)
+ * Return cosine function of x.
  *
  * kernel function:
- *      __kernel_tan            ... tangent function on [-pi/4,pi/4]
+ *      __kernel_sin            ... sine function on [-pi/4,pi/4]
+ *      __kernel_cos            ... cosine function on [-pi/4,pi/4]
  *      __ieee754_rem_pio2      ... argument reduction routine
  *
  * Method.
@@ -46,7 +47,13 @@
 
 #include "math_private.h"
 
-double tan(double x) {
+
+#include "k_cos.h"
+#include "k_sin.h"
+
+static inline __attribute__((always_inline))
+double
+openlibm_cos(double x) {
 	double y[2], z = 0.0;
 	int32_t n, ix;
 
@@ -56,21 +63,28 @@ double tan(double x) {
 	/* |x| ~< pi/4 */
 	ix &= 0x7fffffff;
 	if (ix <= 0x3fe921fb) {
-		if (ix < 0x3e400000) /* x < 2**-27 */
-			if ((int)x == 0)
-				return x; /* generate inexact */
-		return __kernel_tan(x, z, 1);
+		if (ix < 0x3e46a09e) /* if x < 2**-27 * sqrt(2) */
+			if (((int)x) == 0)
+				return 1.0; /* generate inexact */
+		return __kernel_cos(x, z);
 	}
 
-	/* tan(Inf or NaN) is NaN */
+	/* cos(Inf or NaN) is NaN */
 	else if (ix >= 0x7ff00000)
-		return x - x; /* NaN */
+		return x - x;
 
 	/* argument reduction needed */
 	else {
 		n = __ieee754_rem_pio2(x, y);
-		/*   1 -- n even
-		    -1 -- n odd */
-		return __kernel_tan(y[0], y[1], 1 - ((n & 1) << 1));
+		switch (n & 3) {
+		case 0:
+			return __kernel_cos(y[0], y[1]);
+		case 1:
+			return -__kernel_sin(y[0], y[1], 1);
+		case 2:
+			return -__kernel_cos(y[0], y[1]);
+		default:
+			return __kernel_sin(y[0], y[1], 1);
+		}
 	}
 }

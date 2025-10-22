@@ -30,6 +30,10 @@
 
 #include "math_private.h"
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 #define TBLBITS 8
 #define TBLSIZE (1 << TBLBITS)
 
@@ -335,8 +339,9 @@ static const double tbl[TBLSIZE * 2] = {
  *   Gal, S. and Bachelis, B.  An Accurate Elementary Mathematical Library
  *   for the IEEE Floating Point Standard.  TOMS 17(1), 26-46 (1991).
  */
+static inline __attribute__((always_inline))
 double
-exp2(double x) {
+openlibm_exp2(double x) {
 	double r, t, twopk, twopkp1000, z;
 	uint32_t hx, ix, lx, i0;
 	int k;
@@ -387,3 +392,7 @@ exp2(double x) {
 		return (r * twopkp1000 * twom1000);
 	}
 }
+
+#if defined(__cplusplus)
+}
+#endif

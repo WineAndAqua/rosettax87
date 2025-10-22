@@ -14,8 +14,6 @@ add_custom_command(TARGET rosettax87 POST_BUILD
     COMMENT "Signing rosettax87 with entitlements"
 )
 
-file(GLOB OPENLIBM_SOURCES rosettaRuntime/openlibm/*.c)
-
 add_executable(libRuntimeRosettax87
     rosettaRuntime/main.cpp
     rosettaRuntime/X87Float80.cpp
@@ -25,7 +23,6 @@ add_executable(libRuntimeRosettax87
     rosettaRuntime/Export.cpp
     rosettaRuntime/Log.cpp
     rosettaRuntime/SIMDGuard.cpp
-    ${OPENLIBM_SOURCES}
 )
 
 target_include_directories(libRuntimeRosettax87 PRIVATE
@@ -65,7 +62,7 @@ target_link_options(libRuntimeRosettax87 PRIVATE
     "-static"
     "-nostdlib"
     "-Wl,-segaddr,__TEXT,0x0"
-    "-Wl,-segaddr,__DATA,0x10000"
+    "-Wl,-segaddr,__DATA,0x20000"
     "-Wl,-pagezero_size,0x0"
     "-Wl,-headerpad,0"
     "-Wl,-e,_start"
