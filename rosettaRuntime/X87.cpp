@@ -145,7 +145,15 @@ void x87_init(X87State *state) {
 
 X87_TRAMPOLINE(x87_state_from_x86_float_state, x9);
 X87_TRAMPOLINE(x87_state_to_x86_float_state, x9);
+
+#if defined(X87_CONVERT_TO_FP80)
 X87_TRAMPOLINE(x87_pop_register_stack, x9);
+#else
+void x87_pop_register_stack(X87State *state) {
+	LOG(1, "x87_pop_register_stack\n", 9);
+	state->pop();
+}
+#endif
 
 #if defined(X87_F2XM1)
 void x87_f2xm1(X87State *state) {
