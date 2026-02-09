@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 
+# backwards compatibility with macOS 14 (Sonoma) and later
+set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "Minimum macOS deployment version")
+
 project(rosettax87)
 
 set(CMAKE_CXX_STANDARD 20)

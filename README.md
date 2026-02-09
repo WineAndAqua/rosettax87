@@ -8,7 +8,7 @@ This is an experimental project that modifies Apple's Rosetta technology to use 
 
 ## Prerequisites
 
-- macOS 26 or later
+- macOS 14 or later
 - C compiler (clang)
 - CMake
 

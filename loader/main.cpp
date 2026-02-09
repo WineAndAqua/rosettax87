@@ -586,18 +586,25 @@ int main(int argc, char *argv[]) {
 	LOG("machoExports.x87Exports: 0x%llx\n", machoExports.x87Exports);
 	LOG("machoExports.runtimeExports: 0x%llx\n", machoExports.runtimeExports);
 
+	// match the running system's Rosetta version and export count
+	auto libRosettaRuntimeExportsAddress = dbg.readRegister(MuhDebugger::Register::X19);
+	Exports libRosettaRuntimeExports;
+	dbg.readMemory(libRosettaRuntimeExportsAddress, &libRosettaRuntimeExports, sizeof(libRosettaRuntimeExports));
+
+	machoExports.version = libRosettaRuntimeExports.version;
+	if (libRosettaRuntimeExports.x87ExportCount < machoExports.x87ExportCount) {
+		LOG("Capping x87ExportCount from %llu to %llu to match system\n", 
+		    machoExports.x87ExportCount, libRosettaRuntimeExports.x87ExportCount);
+		machoExports.x87ExportCount = libRosettaRuntimeExports.x87ExportCount;
+	}
+
 	dbg.writeMemory(machoExportsAddress, &machoExports, sizeof(machoExports));
 
 	// look up imports section of mapped macho
 	auto machoImportsAddress = machoBase + machoLoader.getSection("__DATA", "imports")->addr;
 	LOG("machoImportsAddress: 0x%llx\n", machoImportsAddress);
 
-	// read the exports from X19 register and copy them to the imports section of the mapped macho
-	auto libRosettaRuntimeExportsAddress = dbg.readRegister(MuhDebugger::Register::X19);
 	LOG("libRosettaRuntimeExportsAddress: 0x%llx\n", libRosettaRuntimeExportsAddress);
-
-	Exports libRosettaRuntimeExports;
-	dbg.readMemory(libRosettaRuntimeExportsAddress, &libRosettaRuntimeExports, sizeof(libRosettaRuntimeExports));
 
 	LOG("libRosettaRuntimeExports.version = 0x%llx\n", libRosettaRuntimeExports.version);
 	LOG("libRosettaRuntimeExports.x87Exports = 0x%llx\n", libRosettaRuntimeExports.x87Exports);
