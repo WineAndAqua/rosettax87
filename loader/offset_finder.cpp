@@ -1,5 +1,6 @@
 #include "offset_finder.hpp"
 
+#include <functional>
 #include <fstream>
 
 auto OffsetFinder::setDefaultOffsets() -> void {
