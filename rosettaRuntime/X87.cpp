@@ -1032,7 +1032,7 @@ X87ResultStatusWord x87_fistt_i16(X87State const *state) {
 	// Get value in ST(0)
 	auto [value, statusWord] = state->getStConst(0);
 
-	return { .signedResult = static_cast<int16_t>(value), statusWord };
+	return { .signedResult = static_cast<int16_t>(value), .statusWord = statusWord };
 }
 #else
 X87_TRAMPOLINE_ARGS(X87ResultStatusWord, x87_fistt_i16, (X87State const *state), x9);
@@ -1046,7 +1046,7 @@ X87ResultStatusWord x87_fistt_i32(X87State const *state) {
 	// Get value in ST(0)
 	auto [value, statusWord] = state->getStConst(0);
 
-	return { .signedResult = static_cast<int32_t>(value), statusWord };
+	return { .signedResult = static_cast<int32_t>(value), .statusWord = statusWord };
 }
 #else
 X87_TRAMPOLINE_ARGS(X87ResultStatusWord, x87_fistt_i32, (X87State const *state), x9);
@@ -1060,7 +1060,7 @@ X87ResultStatusWord x87_fistt_i64(X87State const *state) {
 	// Get value in ST(0)
 	auto [value, statusWord] = state->getStConst(0);
 
-	return { .signedResult = static_cast<int64_t>(value), statusWord };
+	return { .signedResult = static_cast<int64_t>(value), .statusWord = statusWord };
 }
 #else
 X87_TRAMPOLINE_ARGS(X87ResultStatusWord, x87_fistt_i64, (X87State const *state), x9);
