@@ -165,5 +165,5 @@ __attribute__((no_stack_protector, optnone)) void simplePrintf(const char *forma
 	*bufPtr = '\0';
 	va_end(args);
 
-	syscallWrite(1, buffer, bufPtr - buffer);
+	syscallWrite(STDERR_FILENO, buffer, bufPtr - buffer);
 }
